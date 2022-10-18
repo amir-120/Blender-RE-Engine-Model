@@ -1,5 +1,7 @@
 from ctypes import *
 from typing import Literal
+import struct
+import numpy
 import os
 
 
@@ -15,11 +17,13 @@ class RawImage2D(Structure):
 utils = cdll.LoadLibrary(os.path.dirname(__file__) + R"\Texture.dll")
 
 LoadDDS = utils.LoadDDS
-LoadDDS.argtypes = [c_char_p]
+# RawImage2D LoadDDS(const char* filePath, uint8_t channels, bool floatMode, bool hFlip, bool vFlip)
+LoadDDS.argtypes = [c_char_p, c_uint8, c_bool, c_bool, c_bool]
 LoadDDS.restype = RawImage2D
 
 LoadTEX = utils.LoadTEX
-LoadTEX.argtypes = [c_char_p]
+# RawImage2D LoadTEX(const char* filePath, uint8_t channels, bool floatMode, bool hFlip, bool vFlip)
+LoadTEX.argtypes = [c_char_p, c_uint8, c_bool, c_bool, c_bool]
 LoadTEX.restype = RawImage2D
 
 Free = utils.Free
@@ -47,168 +51,153 @@ IsNormalMap.nrmrList = [
 
 
 class TEX:
-    def __init__(self, path: str):
-        raw: RawImage2D = LoadTEX(path.encode("utf-8"))
+    def __init__(self, path: str, mode: Literal['RGBA', 'RGB', 'R', 'G', 'B', 'A'] = 'RGBA', floatMode: bool = False,
+                 hFlip: bool = False, vFlip: bool = False):
+        modeVal: int = 0
 
-        if raw.hresult < 0:
-            raise RuntimeError("Failed to load the TEX file!")
+        if mode == 'RGBA':
+            modeVal = 0b1111
+        elif mode == 'RGB':
+            modeVal = 0b1110
+        elif mode == 'R':
+            modeVal = 0b1000
+        elif mode == 'G':
+            modeVal = 0b0100
+        elif mode == 'B':
+            modeVal = 0b0010
+        elif mode == 'A':
+            modeVal = 0b0001
 
-        self.isLinear = raw.isLinear
-        self.w = raw.width
-        self.h = raw.height
-        self.pixelStride = raw.pixelStride
-        self.num_pixels = raw.width * raw.height
-        self.size_in_bytes = self.num_pixels * raw.pixelStride
-        self.data = bytearray(self.size_in_bytes)
+        if modeVal == 0:
+            raise RuntimeError("Mode not supported!")
 
-        for i in range(self.size_in_bytes):
-            self.data[i] = raw.pBuffer[i]
+        self.__raw: RawImage2D = LoadTEX(path.encode("utf-8"), modeVal, floatMode, hFlip, vFlip)
 
-        if Free(addressof(raw.pBuffer.contents)) < 0:
+        if self.__raw.hresult < 0:
+            raise RuntimeError(f"Failed to load the TEX file! HResult = {hex(self.__raw.hresult)}")
+
+        self.__isLinear = self.__raw.isLinear
+        self.__width = self.__raw.width
+        self.__height = self.__raw.height
+        self.__pixelStride = self.__raw.pixelStride
+        self.__numPixels = self.__raw.width * self.__raw.height
+        self.__sizeInBytes = self.__numPixels * self.__raw.pixelStride
+        self.__buffer = []
+
+        if floatMode:
+            numFloats = self.__sizeInBytes // 4
+            cBuffer = cast(self.__raw.pBuffer, POINTER(c_float * numFloats))[0]
+            self.__buffer = numpy.frombuffer(cBuffer, numpy.float32)
+        else:
+            cBuffer = cast(self.__raw.pBuffer, POINTER(c_ubyte * self.__sizeInBytes))[0]
+            self.__buffer = numpy.frombuffer(cBuffer, numpy.uint8)
+
+    def __del__(self):
+        if Free(addressof(self.__raw.pBuffer.contents)) < 0:
             raise RuntimeError("Failed to free temporary image data buffer!")
 
-        raw.pBuffer = None
+        self.__raw.pBuffer = None
 
-    def GetPixelByIndex(self, index: int) -> tuple[int, int, int, int]:
-        if index > self.num_pixels or index < 0:
-            return -1, -1, -1, -1
+    @property
+    def isLinear(self):
+        return self.__isLinear
 
-        offset = index * self.pixelStride
-        return (self.data[offset + 0],
-                self.data[offset + 1],
-                self.data[offset + 2],
-                self.data[offset + 3])
+    @property
+    def width(self):
+        return self.__width
 
-    def GetPixel(self, x: int, y: int) -> tuple[int, int, int, int]:
-        index = y * self.w + x
-        return self.GetPixelByIndex(index)
+    @property
+    def height(self):
+        return self.__height
 
-    def RegeneratePixels(self, mode: Literal['RGBA', 'RGB', 'R', 'G', 'B', 'A'] = 'RGBA', vFlip: bool = False,
-                         hFlip: bool = False):
-        for y in range(self.h):
-            for x in range(self.w):
-                pixel = self.GetPixel(self.w - 1 - x if hFlip else x, self.h - 1 - y if vFlip else y)
-                red = pixel[0]
-                green = pixel[1]
-                blue = pixel[2]
-                alpha = pixel[3]
+    @property
+    def pixelStride(self):
+        return self.__pixelStride
 
-                if mode == 'RGBA':
-                    yield from (red, green, blue, alpha)
-                elif mode == 'RGB':
-                    yield from (red, green, blue)
-                elif mode == 'R':
-                    yield red
-                elif mode == 'G':
-                    yield green
-                elif mode == 'B':
-                    yield blue
-                elif mode == 'A':
-                    yield alpha
+    @property
+    def numPixels(self):
+        return self.__numPixels
 
-    def RegeneratePixelsF(self, mode: Literal['RGBA', 'RGB', 'R', 'G', 'B', 'A'] = 'RGBA', vFlip: bool = False,
-                          hFlip: bool = False):
-        for y in range(self.h):
-            for x in range(self.w):
-                pixel = self.GetPixel(self.w - 1 - x if hFlip else x, self.h - 1 - y if vFlip else y)
-                red = pixel[0] / 255.0
-                green = pixel[1] / 255.0
-                blue = pixel[2] / 255.0
-                alpha = pixel[3] / 255.0
+    @property
+    def sizeInBytes(self):
+        return self.__sizeInBytes
 
-                if mode == 'RGBA':
-                    yield from (red, green, blue, alpha)
-                elif mode == 'RGB':
-                    yield from (red, green, blue)
-                elif mode == 'R':
-                    yield red
-                elif mode == 'G':
-                    yield green
-                elif mode == 'B':
-                    yield blue
-                elif mode == 'A':
-                    yield alpha
-
+    @property
+    def buffer(self):
+        return self.__buffer
 
 class DDS:
-    def __init__(self, path: str):
-        raw: RawImage2D = LoadDDS(path.encode("utf-8"))
+    def __init__(self, path: str, mode: Literal['RGBA', 'RGB', 'R', 'G', 'B', 'A'] = 'RGBA', floatMode: bool = False,
+                 hFlip: bool = False, vFlip: bool = False):
+        modeVal: int = 0
 
-        if raw.hresult < 0:
-            raise RuntimeError("Failed to load the DDS file!")
+        if mode == 'RGBA':
+            modeVal = 0b1111
+        elif mode == 'RGB':
+            modeVal = 0b1110
+        elif mode == 'R':
+            modeVal = 0b1000
+        elif mode == 'G':
+            modeVal = 0b0100
+        elif mode == 'B':
+            modeVal = 0b0010
+        elif mode == 'A':
+            modeVal = 0b0001
 
-        self.isLinear = raw.isLinear
-        self.w = raw.width
-        self.h = raw.height
-        self.pixelStride = raw.pixelStride
-        self.num_pixels = raw.width * raw.height
-        self.size_in_bytes = self.num_pixels * raw.pixelStride
-        self.data = bytearray(self.size_in_bytes)
+        if modeVal == 0:
+            raise RuntimeError("Mode not supported!")
 
-        for i in range(self.size_in_bytes):
-            self.data[i] = raw.pBuffer[i]
+        self.__raw: RawImage2D = LoadDDS(path.encode("utf-8"), modeVal, floatMode, hFlip, vFlip)
 
-        if Free(addressof(raw.pBuffer.contents)) < 0:
+        if self.__raw.hresult < 0:
+            raise RuntimeError(f"Failed to load the DDS file! HResult = {hex(self.__raw.hresult)}")
+
+        self.__isLinear = self.__raw.isLinear
+        self.__width = self.__raw.width
+        self.__height = self.__raw.height
+        self.__pixelStride = self.__raw.pixelStride
+        self.__numPixels = self.__raw.width * self.__raw.height
+        self.__sizeInBytes = self.__numPixels * self.__raw.pixelStride
+        self.__buffer = []
+
+        if floatMode:
+            numFloats = self.__sizeInBytes // 4
+            cBuffer = cast(self.__raw.pBuffer, POINTER(c_float * numFloats))[0]
+            self.__buffer = numpy.frombuffer(cBuffer, numpy.float32)
+        else:
+            cBuffer = cast(self.__raw.pBuffer, POINTER(c_ubyte * self.__sizeInBytes))[0]
+            self.__buffer = numpy.frombuffer(cBuffer, numpy.uint8)
+
+    def __del__(self):
+        if Free(addressof(self.__raw.pBuffer.contents)) < 0:
             raise RuntimeError("Failed to free temporary image data buffer!")
 
-        raw.pBuffer = None
+        self.__raw.pBuffer = None
 
-    def GetPixelByIndex(self, index: int) -> tuple[int, int, int, int]:
-        if index > self.num_pixels or index < 0:
-            return -1, -1, -1, -1
+    @property
+    def isLinear(self):
+        return self.__isLinear
 
-        offset = index * self.pixelStride
-        return (self.data[offset + 0],
-                self.data[offset + 1],
-                self.data[offset + 2],
-                self.data[offset + 3])
+    @property
+    def width(self):
+        return self.__width
 
-    def GetPixel(self, x: int, y: int) -> tuple[int, int, int, int]:
-        index = y * self.w + x
-        return self.GetPixelByIndex(index)
+    @property
+    def height(self):
+        return self.__height
 
-    def RegeneratePixels(self, mode: Literal['RGBA', 'RGB', 'R', 'G', 'B', 'A'] = 'RGBA', vFlip: bool = False,
-                         hFlip: bool = False):
-        for y in range(self.h):
-            for x in range(self.w):
-                pixel = self.GetPixel(self.w - 1 - x if hFlip else x, self.h - 1 - y if vFlip else y)
-                red = pixel[0]
-                green = pixel[1]
-                blue = pixel[2]
-                alpha = pixel[3]
+    @property
+    def pixelStride(self):
+        return self.__pixelStride
 
-                if mode == 'RGBA':
-                    yield from (red, green, blue, alpha)
-                elif mode == 'RGB':
-                    yield from (red, green, blue)
-                elif mode == 'R':
-                    yield red
-                elif mode == 'G':
-                    yield green
-                elif mode == 'B':
-                    yield blue
-                elif mode == 'A':
-                    yield alpha
+    @property
+    def numPixels(self):
+        return self.__numPixels
 
-    def RegeneratePixelsF(self, mode: Literal['RGBA', 'RGB', 'R', 'G', 'B', 'A'] = 'RGBA', vFlip: bool = False,
-                          hFlip: bool = False):
-        for y in range(self.h):
-            for x in range(self.w):
-                pixel = self.GetPixel(self.w - 1 - x if hFlip else x, self.h - 1 - y if vFlip else y)
-                red = pixel[0] / 255.0
-                green = pixel[1] / 255.0
-                blue = pixel[2] / 255.0
-                alpha = pixel[3] / 255.0
+    @property
+    def sizeInBytes(self):
+        return self.__sizeInBytes
 
-                if mode == 'RGBA':
-                    yield from (red, green, blue, alpha)
-                elif mode == 'RGB':
-                    yield from (red, green, blue)
-                elif mode == 'R':
-                    yield red
-                elif mode == 'G':
-                    yield green
-                elif mode == 'B':
-                    yield blue
-                elif mode == 'A':
-                    yield alpha
+    @property
+    def buffer(self):
+        return self.__buffer

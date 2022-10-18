@@ -123,7 +123,7 @@ def CreateMaterial(name: str, replace: bool = True) -> bpy.types.Material:
     return mat
 
 
-def AddRETextureToMaterial(mat: bpy.types.Material, texPath: str, alpha: bool = False) -> bpy.types.Node:
+def AddRETextureToMaterial(mat: bpy.types.Material, texPath: str) -> bpy.types.Node:
     imageName = os.path.basename(texPath)
 
     if (blTex := bpy.data.images.get(imageName)) is not None:
@@ -132,15 +132,16 @@ def AddRETextureToMaterial(mat: bpy.types.Material, texPath: str, alpha: bool = 
         tex.image = blTex
         return tex
 
-    rawImage = TEX(texPath)
-    blenderImage = bpy.data.images.new(f"{mat.name} - {imageName}", rawImage.w, rawImage.h, alpha=True,
+    rawImage = TEX(texPath, 'RGBA', floatMode=True, vFlip=True)
+
+    blenderImage = bpy.data.images.new(f"{mat.name} - {imageName}", rawImage.width, rawImage.height, alpha=True,
                                        is_data=rawImage.isLinear)
     blenderImage.alpha_mode = 'CHANNEL_PACKED'
-    blenderImage.pixels = list(rawImage.RegeneratePixelsF(vFlip=True))
+    blenderImage.pixels = rawImage.buffer.copy()
     blenderImage.update()
 
     # Save image in blend file
-    blenderImage.filepath_raw = "/tmp/temp.png"
+    blenderImage.filepath_raw = f"/tmp/{os.path.basename(texPath)}.png"
     blenderImage.file_format = 'TARGA'
     blenderImage.save()
 

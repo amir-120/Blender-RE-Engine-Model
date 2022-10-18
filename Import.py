@@ -50,8 +50,8 @@ def ReadREModel(path: str) -> REEMesh:
 
     return REEMesh(meshBuffer)
 
-def LoadREModel(meshPath: str, mdfPath: str or None, assetRoot: str or None, hqLODOnly: bool = False,
-                mainGeoOnly: bool = False, loadArmature: bool = True):
+def LoadREModel(meshPath: str, mdfPath: str or None = None, hqTex: bool = True, assetRoot: str or None = None,
+                hqLODOnly: bool = False, mainGeoOnly: bool = False, loadArmature: bool = True):
     # Open the model file and read it
     reModel = ReadREModel(meshPath)
 
@@ -98,8 +98,12 @@ def LoadREModel(meshPath: str, mdfPath: str or None, assetRoot: str or None, hqL
                 mdfMat = mdf[matName]
                 mdfNode = Shader.AddMDFNode(mat, mdfMat)
                 for tex in mdfMat.textureInfo:
-                    texPath = os.path.join(assetRoot, tex.filePath + ".11") if assetRoot is not None else\
-                        os.path.join(GetMDFRoot(mdfPath), tex.filePath + ".11")
+                    texPath = tex.filePath
+                    if hqTex:
+                        texPath = os.path.join("Streaming", texPath)
+
+                    texPath = os.path.join(assetRoot, texPath + ".11") if assetRoot is not None else\
+                        os.path.join(GetMDFRoot(mdfPath), texPath + ".11")
 
                     if os.path.isfile(texPath):
                         texNode = Shader.AddRETextureToMaterial(mat, texPath)

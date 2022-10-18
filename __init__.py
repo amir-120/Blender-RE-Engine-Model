@@ -9,15 +9,12 @@ bl_info = {
     "name": "RE Engine Model Utilities",
     "description": "Can be used to import and set up models from RE Engine",
     "author": "Darkness",
-    "version": (0, 0, 1),
+    "version": (0, 1, 1),
     "blender": (3, 3, 1),
     "location": "3D Viewport and Node Editor",
     "warning": "This addon is still in development.",
     "wiki_url": "",
     "category": "Import - Node" }
-
-
-import bpy
 
 
 # Load the modules

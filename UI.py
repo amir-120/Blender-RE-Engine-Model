@@ -35,6 +35,12 @@ class UIProps(PropertyGroup):
         default=False,
     )
 
+    hqTextures: BoolProperty(
+        name="High Quality Textures",
+        description="Import streaming textures if present in the root",
+        default=True,
+    )
+
     customRoot: BoolProperty(
         name="Use Custom Asset Root Dir",
         description="Use a manually set custom directory as the base of the game asset references",
@@ -69,10 +75,10 @@ class UIProps(PropertyGroup):
         bpy.utils.unregister_class(cls)
 
 
-class OBJECT_PT_REEMesh(Panel):
+class OBJECT_PT_REEModel(Panel):
     bl_category = "RE Engine Mesh"
     bl_idname = "OBJECT_PT_REEMesh"
-    bl_label = "RE Engine Mesh"
+    bl_label = "RE Engine Model"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_context = "objectmode"
@@ -96,6 +102,9 @@ class OBJECT_PT_REEMesh(Panel):
             materialRow = col1MDFBox.row(align=True)
             materialRow.separator(factor=1.0)
             materialRow.prop(props, "mdfPath")
+
+            col1MDFBox.separator(factor=1.0)
+            col1MDFBox.prop(props, "hqTextures")
 
             col1MDFBox.separator(factor=1.0)
             col1MDFBox.prop(props, "customRoot")
@@ -122,7 +131,7 @@ class OBJECT_PT_REEMesh(Panel):
 
         importButtonRow = col1ImportBox.row()
         importButtonRow.alignment = 'CENTER'
-        importButtonRow.operator("reengine.import_mesh")
+        importButtonRow.operator(OBJECT_OT_REMeshImport.bl_idname)
 
     @classmethod
     def Register(cls):
@@ -142,7 +151,7 @@ class OBJECT_OT_REMeshImport(Operator):
         from . import Import
 
         props = context.scene.reProps
-        Import.LoadREModel(props.meshPath, props.mdfPath if props.importMDF else None,
+        Import.LoadREModel(props.meshPath, props.mdfPath if props.importMDF else None, props.hqTextures,
                            props.assetRootDir if props.customRoot else None, props.importHQLODOnly,
                            not props.importShadowGeo, props.importArmature)
 
@@ -182,6 +191,7 @@ class IMPORT_OT_REModel(bpy.types.Operator, ImportHelper):
         layout.prop(props, "importArmature")
         layout.prop(props, "importHQLODOnly")
         layout.prop(props, "importShadowGeo")
+        layout.prop(props, "hqTextures")
 
     def execute(self, context):
         from . import Import
@@ -208,7 +218,7 @@ class IMPORT_OT_REModel(bpy.types.Operator, ImportHelper):
                 self.report({'ERROR'}, "A mesh file must be selected")
                 return {'CANCELLED'}
 
-            Import.LoadREModel(modelPath[0], modelPath[1] if modelPath[1] is not None else None, None,
+            Import.LoadREModel(modelPath[0], modelPath[1] if modelPath[1] is not None else None, props.hqTextures, None,
                                 props.importHQLODOnly, not props.importShadowGeo, props.importArmature)
             ret = {'FINISHED'}
 
@@ -217,8 +227,8 @@ class IMPORT_OT_REModel(bpy.types.Operator, ImportHelper):
             ret = {'CANCELLED'}
 
             if os.path.splitext(self.filepath)[1] == ".1808282334":
-                Import.LoadREModel(props.filepath, None, None, props.importHQLODOnly, not props.importShadowGeo,
-                                   props.importArmature)
+                Import.LoadREModel(props.filepath, None, props.hqTextures, None, props.importHQLODOnly,
+                                   not props.importShadowGeo, props.importArmature)
                 ret = {'FINISHED'}
 
             return ret
@@ -237,13 +247,13 @@ def MenuFuncImport(self, context: bpy.types.Context):
 def Register():
     UIProps.Register()
     OBJECT_OT_REMeshImport.Register()
-    OBJECT_PT_REEMesh.Register()
+    OBJECT_PT_REEModel.Register()
     IMPORT_OT_REModel.Register()
     bpy.types.TOPBAR_MT_file_import.append(MenuFuncImport)
 
 def Unregister():
     UIProps.Unregister()
     OBJECT_OT_REMeshImport.Unregister()
-    OBJECT_PT_REEMesh.Unregister()
+    OBJECT_PT_REEModel.Unregister()
     IMPORT_OT_REModel.Unregister()
     bpy.types.TOPBAR_MT_file_import.remove(MenuFuncImport)

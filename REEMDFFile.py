@@ -104,7 +104,8 @@ class Material:
 
         self.properties: list[PropertyInfo] = []
         for i in range(self.propertyCount):
-            self.properties.append(PropertyInfo(buffer, self.propertyInfoOffset + i * PropertyInfo.size, self.propertyBufferOffset))
+            self.properties.append(PropertyInfo(buffer, self.propertyInfoOffset + i * PropertyInfo.size,
+                                                self.propertyBufferOffset))
 
     size = 64
 
