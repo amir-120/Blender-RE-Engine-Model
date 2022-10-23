@@ -36,6 +36,7 @@ def AppendAllRENodeTrees():
     AppendRENodeTree('Eye Shader')
     AppendRENodeTree('Alba Shader')
 
+
 def CleanNodeTree(nodeTree: bpy.types.NodeTree):
     if nodeTree is not None:
         for node in nodeTree.nodes:
@@ -53,6 +54,7 @@ def DeepCopyNodeTree(nodeTree: bpy.types.NodeTree) -> bpy.types.NodeTree or None
         return nodeTree
     return None
 
+
 def GetRENodeNoCopy(reShaderName: RENodeTreeEnum) -> bpy.types.ShaderNodeTree:
     reNode: bpy.types.ShaderNodeTree or None = bpy.data.node_groups.get(reShaderName)
     return AppendRENodeTree(reShaderName) if reNode is None else reNode
@@ -62,6 +64,7 @@ def GetRENodeCopy(reShaderName: RENodeTreeEnum) -> bpy.types.ShaderNodeTree or N
     nodeTree = GetRENodeNoCopy(reShaderName)
 
     return DeepCopyNodeTree(nodeTree)
+
 
 def AutoconnectRENodes(shaderNode: bpy.types.Node, mdfNode: bpy.types.Node = None, reNodes: list[bpy.types.Node] = None,
                        materialOuput: bpy.types.Node = None):
@@ -82,18 +85,28 @@ def AutoconnectRENodes(shaderNode: bpy.types.Node, mdfNode: bpy.types.Node = Non
             if hasattr(node, 'bl_type') and node.bl_type.startswith("REE_NODE"):
                 reExtraNodes.append(node)
 
+    topLeft = (shaderNode.location[0] - shaderNode.width - shaderNode.width * 0.5, shaderNode.location[1])
+    botLeft = (shaderNode.location[0] - shaderNode.width - shaderNode.width * 0.5, shaderNode.location[1] - 45.0)
     if materialOutput is None:
         for node in nodeTree.nodes:
+            xy = node.location
+
+            if node.type != 'UVMAP':
+                topLeft = (min([xy[0] - node.width - node.width * 0.5, topLeft[0]]), max([xy[1], topLeft[1]]))
+
+            if node.type == 'TEX_IMAGE':
+                botLeft = (min([xy[0], botLeft[0]]), min([xy[1], botLeft[1] - 45.0]))
+
             if node.type == 'OUTPUT_MATERIAL':
                 materialOutput = node
-                continue
+                break
 
     shaderInputNames: list[str] = [socket.name for socket in shaderNode.inputs]
     mdfOutputNames: list[str] = [socket.name for socket in mdfInfoNode.outputs] if mdfInfoNode is not None else None
+    mdfInputNames: list[str] = [socket.name for socket in mdfInfoNode.inputs] if mdfInfoNode is not None else None
 
     if mdfInfoNode is not None:
-        # Add a Wrinkle Map node if needed
-
+        # Add a Wrinkle Map or uv node if needed
         hasWrinkleMap = "WrinkleDiffuseMap1" in mdfOutputNames and "WrinkleDiffuseMap2" in mdfOutputNames and \
                             "WrinkleDiffuseMap3" in mdfOutputNames and "WrinkleNormalMap1" in mdfOutputNames and \
                             "WrinkleNormalMap2" in mdfOutputNames and "WrinkleNormalMap3" in mdfOutputNames
@@ -110,6 +123,55 @@ def AutoconnectRENodes(shaderNode: bpy.types.Node, mdfNode: bpy.types.Node = Non
             nodeTree.links.new(shaderNode.inputs["BaseMetalMap"], wmNode.outputs["BaseMetalMap"])
             nodeTree.links.new(shaderNode.inputs["NormalRoughnessMap"], wmNode.outputs["NormalRoughnessMap"])
             reExtraNodes.append(wmNode)
+
+    # Add second UV textures if needed
+    secondUVUsers: list[str] = []
+    for input in shaderInputNames:
+        if input.startswith("UV2 - "):
+            secondUVUsers.append(input)
+
+    secondUVUsers = list(dict.fromkeys(secondUVUsers))
+
+    secondUVNode: bpy.types.Node or None = None
+    for node in nodeTree.nodes:
+        if node.type == 'UVMAP' and node.uv_map == "UV_1":
+            secondUVNode = node
+
+    if secondUVUsers and secondUVNode is None:
+        secondUVNode = nodeTree.nodes.new(type='ShaderNodeUVMap')
+        secondUVNode.uv_map = "UV_1"
+        secondUVNode.location = topLeft
+
+    if mdfInfoNode is not None:
+        for shaderInSocket in secondUVUsers:
+            mdfNodeInSocketName = shaderInSocket[6:]
+            if mdfNodeInSocketName in mdfInputNames:
+                mdfInSocket = mdfInfoNode.inputs.get(mdfNodeInSocketName)
+                if mdfInSocket is not None:
+                    sourceNodes = [link.from_node for link in mdfInSocket.links]
+                    for sourceNode in list(dict.fromkeys(sourceNodes)):
+                        if sourceNode.type == 'TEX_IMAGE':
+                            newUV2TexNode = nodeTree.nodes.get("2nd UV - " + sourceNode.name)
+
+                            if newUV2TexNode is None:
+                                newUV2TexNode = nodeTree.nodes.new(type='ShaderNodeTexImage')
+
+                                newUV2TexNode.image = sourceNode.image
+                                newUV2TexNode.extension = sourceNode.extension
+                                newUV2TexNode.interpolation = sourceNode.interpolation
+                                newUV2TexNode.projection = sourceNode.projection
+                                newUV2TexNode.projection_blend = sourceNode.projection_blend
+
+                            newUV2TexNode.name = "2nd UV - " + sourceNode.name
+                            newUV2TexNode.hide = True
+                            newUV2TexNode.location = botLeft
+                            botLeft = (botLeft[0], botLeft[1] - 17.0)
+                            nodeTree.links.new(secondUVNode.outputs['UV'], newUV2TexNode.inputs['Vector'])
+                            if shaderInSocket.endswith(" - Alpha"):
+                                nodeTree.links.new(newUV2TexNode.outputs['Alpha'],
+                                                   shaderNode.inputs[shaderInSocket])
+                            else:
+                                nodeTree.links.new(newUV2TexNode.outputs['Color'], shaderNode.inputs[shaderInSocket])
 
     if materialOutput is not None:
         nodeTree.links.new(shaderNode.outputs["BSDF"], materialOutput.inputs["Surface"])
@@ -132,7 +194,6 @@ def AutoconnectRENodes(shaderNode: bpy.types.Node, mdfNode: bpy.types.Node = Non
                 for reExtraNodeInput in reExtraNode.inputs:
                     if reExtraNodeInput.name in mdfOutputNames:
                         nodeTree.links.new(mdfInfoNode.outputs[reExtraNodeInput.name], reExtraNodeInput)
-
 
 class NodeHelper:
     @staticmethod
@@ -443,26 +504,28 @@ class REEShaderDynamic(ShaderNodeCustomGroup, NodeHelper):
         self.width = 240.0
 
     def draw_buttons(self, context, layout):
+        isActive =  context.active_node == self
+
         row1 = layout.row(align=True)
         row1.prop(self, "reShaderType")
         if self.reShaderType == 'Skin':
             row2 = layout.row(align=True)
-            NODE_OT_AddWrinkleMap.SetNode(self)
-            row2.operator(NODE_OT_AddWrinkleMap.bl_idname)
+            row2.operator(NODE_OT_AddWrinkleMap.bl_idname if isActive else NODE_OT_AddWrinkleMap_Disable.bl_idname)
         row3 = layout.row(align=True)
-        NODE_OT_AutoconnectREShader.SetNode(self)
-        row3.operator(NODE_OT_AutoconnectREShader.bl_idname)
+        row3.operator(NODE_OT_AutoconnectREShader.bl_idname if isActive else
+                      NODE_OT_AutoconnectREShader_Disable.bl_idname)
 
     def draw_buttons_ext(self, context, layout):
+        isActive = context.active_node == self
+
         row1 = layout.row(align=True)
         row1.prop(self, "reShaderType")
         if self.reShaderType == 'Skin':
             row2 = layout.row(align=True)
-            NODE_OT_AddWrinkleMap.SetNode(self)
-            row2.operator(NODE_OT_AddWrinkleMap.bl_idname)
+            row2.operator(NODE_OT_AddWrinkleMap.bl_idname if isActive else NODE_OT_AddWrinkleMap_Disable.bl_idname)
         row3 = layout.row(align=True)
-        NODE_OT_AutoconnectREShader.SetNode(self)
-        row3.operator(NODE_OT_AutoconnectREShader.bl_idname)
+        row3.operator(NODE_OT_AutoconnectREShader.bl_idname if isActive else
+                      NODE_OT_AutoconnectREShader_Disable.bl_idname)
 
     def draw_label(self):
         return self.bl_label
@@ -678,22 +741,18 @@ class NODE_OT_AutoconnectREShader(Operator):
     bl_label = "Auto Connect"
     bl_description = "Automatically connect nodes"
 
-    node: bpy.types.Node
-
-    @classmethod
-    def SetNode(cls, node: bpy.types.Node):
-        cls.node = node
-
     def execute(self, context: bpy.types.Context):
-        if self.node is None:
+        node: bpy.types.Node = context.active_node
+
+        if node is None:
             return {'CANCELLED'}
 
-        AutoconnectRENodes(self.node)
+        AutoconnectRENodes(node)
         return {'FINISHED'}
 
     @classmethod
     def poll(cls, context: bpy.types.Context):
-        return cls.node.id_data is not None
+        return context.active_node is not None
 
     @classmethod
     def Register(cls):
@@ -708,17 +767,13 @@ class NODE_OT_AddWrinkleMap(Operator):
     bl_label = "Add Wrinkle Map"
     bl_description = "Add a Wrinkle Map node"
 
-    node: bpy.types.Node
-
-    @classmethod
-    def SetNode(cls, node: bpy.types.Node):
-        cls.node = node
-
     def execute(self, context: bpy.types.Context):
-        if self.node is None:
+        node: bpy.types.Node = context.active_node
+
+        if node is None:
             return {'CANCELLED'}
 
-        currNode = self.node
+        currNode = node
         wmNode: REENodeWrinkleMap = currNode.id_data.nodes.new(type='REENodeWrinkleMap')
         wmNode.location = (currNode.location[0] - currNode.width - 100.0, currNode.location[1])
         currNode.id_data.links.new(currNode.inputs["BaseMetalMap"], wmNode.outputs["BaseMetalMap"])
@@ -727,7 +782,49 @@ class NODE_OT_AddWrinkleMap(Operator):
 
     @classmethod
     def poll(cls, context: bpy.types.Context):
-        return cls.node.id_data is not None
+        return context.active_node is not None
+
+    @classmethod
+    def Register(cls):
+        bpy.utils.register_class(cls)
+
+    @classmethod
+    def Unregister(cls):
+        bpy.utils.unregister_class(cls)
+
+# Stupid workarounds to show a disabled button
+class NODE_OT_AutoconnectREShader_Disable(Operator):
+    bl_idname = NODE_OT_AutoconnectREShader.bl_idname.__add__("_disable")
+    bl_label = NODE_OT_AutoconnectREShader.bl_label
+    bl_description = NODE_OT_AutoconnectREShader.bl_description
+
+    def execute(self, context: bpy.types.Context):
+        return {'FINISHED'}
+
+    @classmethod
+    def poll(cls, context: bpy.types.Context):
+        return False
+
+    @classmethod
+    def Register(cls):
+        bpy.utils.register_class(cls)
+
+    @classmethod
+    def Unregister(cls):
+        bpy.utils.unregister_class(cls)
+
+# Stupid workarounds to show a disabled button
+class NODE_OT_AddWrinkleMap_Disable(Operator):
+    bl_idname = NODE_OT_AddWrinkleMap.bl_idname.__add__("_disable")
+    bl_label = NODE_OT_AddWrinkleMap.bl_label
+    bl_description = NODE_OT_AddWrinkleMap.bl_description
+
+    def execute(self, context: bpy.types.Context):
+        return {'FINISHED'}
+
+    @classmethod
+    def poll(cls, context: bpy.types.Context):
+        return False
 
     @classmethod
     def Register(cls):
@@ -765,6 +862,8 @@ customNodeCategories = [
 def Register():
     NODE_OT_AutoconnectREShader.Register()
     NODE_OT_AddWrinkleMap.Register()
+    NODE_OT_AutoconnectREShader_Disable.Register()
+    NODE_OT_AddWrinkleMap_Disable.Register()
     for customNodeClass in customShaderClasses + customNodeClasses:
         customNodeClass.Register()
 
@@ -776,5 +875,7 @@ def Unregister():
 
     NODE_OT_AutoconnectREShader.Unregister()
     NODE_OT_AddWrinkleMap.Unregister()
+    NODE_OT_AutoconnectREShader_Disable.Unregister()
+    NODE_OT_AddWrinkleMap_Disable.Unregister()
     for customNodeClass in customNodeClasses:
         customNodeClass.Unregister()

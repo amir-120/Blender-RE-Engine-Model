@@ -10,7 +10,7 @@ class UIProps(PropertyGroup):
         subtype='FILE_PATH',
         description="Path to the mesh file",
         default="",
-        options={'TEXTEDIT_UPDATE'},
+        options={'TEXTEDIT_UPDATE'}
         )
 
     mdfPath: StringProperty(
@@ -18,7 +18,7 @@ class UIProps(PropertyGroup):
         subtype='FILE_PATH',
         description="Path to the MDF file",
         default="",
-        options={'TEXTEDIT_UPDATE'},
+        options={'TEXTEDIT_UPDATE'}
         )
 
     assetRootDir: StringProperty(
@@ -26,43 +26,43 @@ class UIProps(PropertyGroup):
         subtype='DIR_PATH',
         description="Root directory for assets (x64)",
         default="",
-        options={'TEXTEDIT_UPDATE'},
+        options={'TEXTEDIT_UPDATE'}
     )
 
     importMDF: BoolProperty(
         name="Load Materials",
         description="Load the info saved inside the MDF file about materials",
-        default=False,
+        default=False
     )
 
     hqTextures: BoolProperty(
         name="High Quality Textures",
         description="Import streaming textures if present in the root",
-        default=True,
+        default=True
     )
 
     customRoot: BoolProperty(
         name="Use Custom Asset Root Dir",
         description="Use a manually set custom directory as the base of the game asset references",
-        default=False,
+        default=False
     )
 
     importArmature: BoolProperty(
         name="Load Armature",
         description="Import the bone structure and rig the mesh to it",
-        default=True,
+        default=True
     )
 
     importHQLODOnly: BoolProperty(
         name="Only Load HQ LOD",
         description="Only import the LOD group with the highest quality (LOD Group 1)",
-        default=True,
+        default=True
     )
 
     importShadowGeo: BoolProperty(
         name="Load Shadow Geometry",
         description="Import the geometry used to cast shadow if present in the file",
-        default=False,
+        default=False
     )
 
     @classmethod

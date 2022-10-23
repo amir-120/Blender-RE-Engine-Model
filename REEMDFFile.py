@@ -59,9 +59,8 @@ class PropertyInfo:
         # Calculated data
         self.name = ReadWString(buffer, self.nameOffset)
 
-        self.parameters: list[float] = []
-        for i in range(self.parameterCount):
-            self.parameters.append(ReadFloat(buffer, propertyBufferOffset + self.propertyOffsetInBuffer + i * 4))
+        self.parameters: list[float] = ReadFloat(buffer, propertyBufferOffset + self.propertyOffsetInBuffer,
+                                                 self.parameterCount)
 
     size = 24
 
@@ -98,14 +97,14 @@ class Material:
         self.name = ReadWString(buffer, self.nameOffset)
         self.masterMaterialFilePath = ReadWString(buffer, self.masterMaterialFilePathOffset)
 
-        self.textureInfo: list[TextureInfo] = []
+        self.textureInfo: list[TextureInfo] = [None] * self.textureCount
         for i in range(self.textureCount):
-            self.textureInfo.append(TextureInfo(buffer, self.textureInfoOffset + i * TextureInfo.size))
+            self.textureInfo[i] = TextureInfo(buffer, self.textureInfoOffset + i * TextureInfo.size)
 
-        self.properties: list[PropertyInfo] = []
+        self.properties: list[PropertyInfo] = [None] * self.propertyCount
         for i in range(self.propertyCount):
-            self.properties.append(PropertyInfo(buffer, self.propertyInfoOffset + i * PropertyInfo.size,
-                                                self.propertyBufferOffset))
+            self.properties[i] = PropertyInfo(buffer, self.propertyInfoOffset + i * PropertyInfo.size,
+                                                self.propertyBufferOffset)
 
     size = 64
 
@@ -123,7 +122,7 @@ class Header:
 
 
 class MDF:
-    def __init__(self, fileBuffer: list[int]):
+    def __init__(self, fileBuffer: bytes or bytearray or list[int]):
         # Taking the file buffer in
         self.fileBuffer = fileBuffer
 
@@ -131,9 +130,9 @@ class MDF:
         self.header = Header(self.fileBuffer, 0)
 
         # Read materials info
-        self.materials: list[Material] = []
+        self.materials: list[Material] = [None] * self.header.materialCount
         for i in range(self.header.materialCount):
-            self.materials.append(Material(fileBuffer, 16 + i * Material.size))
+            self.materials[i] = Material(fileBuffer, 16 + i * Material.size)
 
         self.__nameIdxMap: dict[str:int] = {}
         for idx in range(self.header.materialCount):

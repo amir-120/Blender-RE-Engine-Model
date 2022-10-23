@@ -33,7 +33,7 @@ def GetMDFRoot(path: str) -> str:
 def ReadMDFFile(path: str) -> MDF:
     mdfBuffer = None
     with open(path, 'rb') as reMDFFile:
-        mdfBuffer = list(reMDFFile.read(-1))
+        mdfBuffer = reMDFFile.read(-1)
 
     if mdfBuffer is None:
         raise RuntimeError(f"Failed to open \"{path}\"")
@@ -43,14 +43,14 @@ def ReadMDFFile(path: str) -> MDF:
 def ReadREModel(path: str) -> REEMesh:
     meshBuffer = None
     with open(path, 'rb') as reModelFile:
-        meshBuffer = list(reModelFile.read(-1))
+        meshBuffer = reModelFile.read(-1)
 
     if meshBuffer is None:
         raise RuntimeError(f"Failed to open \"{path}\"")
 
     return REEMesh(meshBuffer)
 
-def LoadREModel(meshPath: str, mdfPath: str or None = None, hqTex: bool = True, assetRoot: str or None = None,
+def LoadREModel(meshPath: str, mdfPath: str or None = None, useHQTex: bool = True, assetRoot: str or None = None,
                 hqLODOnly: bool = False, mainGeoOnly: bool = False, loadArmature: bool = True):
     # Open the model file and read it
     reModel = ReadREModel(meshPath)
@@ -75,6 +75,9 @@ def LoadREModel(meshPath: str, mdfPath: str or None = None, hqTex: bool = True, 
     # Storing the mode before changing it, so we can restore it when we are done
     modeBefore = bpy.context.object.mode
 
+    # Keep a list of the material
+    meshMaterials: list[bpy.types.Material] = []
+
     # Create the materials
     mdf: MDF or None = None
     if mdfPath is not None:
@@ -85,27 +88,39 @@ def LoadREModel(meshPath: str, mdfPath: str or None = None, hqTex: bool = True, 
         mat = Shader.CreateMaterial(matName)
 
         if len(mat.node_tree.links) == 0 and len(mat.node_tree.nodes) == 0:
+            meshMaterials.append(mat)
+
             mdfNode: bpy.types.Node or None = None
             texNodes: list[bpy.types.Node] = []
 
             outShader: CustomNodes.REEShaderDynamic = mat.node_tree.nodes.new(type='REEShaderDynamic')
 
-            reShaderType = Shader.GuessREShaderType(mat.name, mdfNode)
-            if reShaderType == "Skin & WM": reShaderType = 'Skin Shader'
-            outShader.ChangeType(reShaderType)
-
             if mdf is not None:
                 mdfMat = mdf[matName]
                 mdfNode = Shader.AddMDFNode(mat, mdfMat)
+
+                reShaderType = Shader.GuessREShaderType(mat.name, mdfNode)
+                if reShaderType == "Skin & WM": reShaderType = 'Skin Shader'
+                outShader.ChangeType(reShaderType)
+
                 for tex in mdfMat.textureInfo:
-                    texPath = tex.filePath
-                    if hqTex:
-                        texPath = os.path.join("Streaming", texPath)
+                    lqTexPath = tex.filePath
+                    hqTexPath = os.path.join("Streaming", tex.filePath)
 
-                    texPath = os.path.join(assetRoot, texPath + ".11") if assetRoot is not None else\
-                        os.path.join(GetMDFRoot(mdfPath), texPath + ".11")
+                    lqTexPath = os.path.join(assetRoot, lqTexPath + ".11") if assetRoot is not None else\
+                        os.path.join(GetMDFRoot(mdfPath), lqTexPath + ".11")
 
-                    if os.path.isfile(texPath):
+                    hqTexPath = os.path.join(assetRoot, hqTexPath + ".11") if assetRoot is not None else\
+                        os.path.join(GetMDFRoot(mdfPath), hqTexPath + ".11")
+
+                    texPath:str or None = None
+
+                    if useHQTex and os.path.isfile(hqTexPath):
+                        texPath = hqTexPath
+                    elif os.path.isfile(lqTexPath):
+                        texPath = lqTexPath
+
+                    if texPath is not None:
                         texNode = Shader.AddRETextureToMaterial(mat, texPath)
                         mat.node_tree.links.new(texNode.outputs['Color'], mdfNode.inputs[tex.type])
                         mat.node_tree.links.new(texNode.outputs['Alpha'], mdfNode.inputs[f"{tex.type} - Alpha"])
@@ -113,12 +128,15 @@ def LoadREModel(meshPath: str, mdfPath: str or None = None, hqTex: bool = True, 
 
                 flags = mdfMat.flags
 
+                mat.shadow_method = 'OPAQUE'
+
+                #flags & int(MaterialFlags.AlphaMaskUsed) or\
                 if mdfMat.shaderType == ShaderType.Transparent or mdfMat.shaderType == ShaderType.GUIMeshTransparent or\
                         mdfMat.shaderType == ShaderType.ExpensiveTransparent or\
-                        flags & int(MaterialFlags.AlphaMaskUsed) or flags & int(MaterialFlags.AlphaTestEnable) or\
+                        flags & int(MaterialFlags.AlphaTestEnable) or\
                         flags & int(MaterialFlags.BaseAlphaTestEnable) or\
                         flags & int(MaterialFlags.ForcedAlphaTestEnable):
-                    mat.blend_method = 'HASHED'
+                    mat.blend_method = 'HASHED' if reShaderType == 'Hair Shader' else 'BLEND'
                     mat.shadow_method = 'HASHED'
 
                 if flags & int(MaterialFlags.TwoSideEnable) or flags & int(MaterialFlags.BaseTwoSideEnable) or\
@@ -165,7 +183,7 @@ def LoadREModel(meshPath: str, mdfPath: str or None = None, hqTex: bool = True, 
 
         for i in range(reModel.armature.boneCount):
             bone_from_file = bones[i]
-            bone_parent_index = reModel.armature.boneHierArchy[i].parent
+            bone_parent_index = reModel.armature.boneHierarchy[i].parent
             bone = armature.edit_bones.new(nameBuffer[bone_index_buffer[i]])
             bone.matrix = bone_from_file.transformMatrix
             bone.use_relative_parent = True
@@ -230,10 +248,7 @@ def LoadREModel(meshPath: str, mdfPath: str or None = None, hqTex: bool = True, 
 
                     # Create the meshes
                     mesh = bpy.data.meshes.new(f"LODGroup_{lodIdx}_Mainmesh_{mmIdx}_Submesh{smIdx} - {materialName}")
-                    vertices: list[tuple[float, float, float]] = submesh.GetVertexBuffer()
-                    faces: list[tuple[int, int, int]] = submesh.GetFaceIndexBuffer()
-
-                    mesh.from_pydata(vertices, [], faces)
+                    mesh.from_pydata(submesh.vertexBuffer, [], submesh.faces)
                     mesh.update()
 
                     # Make object from mesh
@@ -241,22 +256,24 @@ def LoadREModel(meshPath: str, mdfPath: str or None = None, hqTex: bool = True, 
 
                     # Apply uvs (Horizontally flipped)
                     # First layer:
-                    mesh.uv_layers.new(name='UV_0')
-                    uv0Data = mesh.uv_layers[0].data
+                    if submesh.uv0s.any():
+                        mesh.uv_layers.new(name='UV_0')
+                        uv0Data = mesh.uv_layers[0].data
 
-                    for u in range(len(uv0Data)):
-                        uv = submesh.uv0s[mesh.loops[u].vertex_index]
-                        uv0Data[u].uv = (1.0 - uv.u, uv.v)
+                        for u in range(len(uv0Data)):
+                            uv = submesh.uv0s[mesh.loops[u].vertex_index]
+                            uv0Data[u].uv = (uv[0], 1.0 - uv[1])
 
                     # Second layer:
-                    mesh.uv_layers.new(name='UV_1')
-                    uv1Data = mesh.uv_layers[1].data
+                    if submesh.uv1s.any():
+                        mesh.uv_layers.new(name='UV_1')
+                        uv1Data = mesh.uv_layers[1].data
 
-                    for u in range(len(uv1Data)):
-                        uv = submesh.uv1s[mesh.loops[u].vertex_index]
-                        uv1Data[u].uv = (1.0 - uv.u, uv.v)
+                        for u in range(len(uv1Data)):
+                            uv = submesh.uv1s[mesh.loops[u].vertex_index]
+                            uv1Data[u].uv = (uv[0], 1.0 - uv[1])
 
-                    mesh.update()
+                        mesh.update()
 
                     # Apply normals and calculate tangents
                     normal_data: list[mathutils.Vector] = []
@@ -274,7 +291,8 @@ def LoadREModel(meshPath: str, mdfPath: str or None = None, hqTex: bool = True, 
 
                     mesh.use_auto_smooth = True
                     mesh.normals_split_custom_set(normal_data)
-                    mesh.calc_tangents(uvmap="UV_0")
+                    if submesh.uv0s.any():
+                        mesh.calc_tangents(uvmap="UV_0")
                     mesh.update()
 
                     if loadArmature:
@@ -313,3 +331,7 @@ def LoadREModel(meshPath: str, mdfPath: str or None = None, hqTex: bool = True, 
 
     # Restore to the mode before we changed it
     bpy.ops.object.mode_set(mode=modeBefore)
+
+    # Rename the materials to be unique, so they don't conflict with next imports
+    for mat in meshMaterials:
+        mat.name = f"{os.path.splitext(os.path.basename(meshPath))[0]} - {mat.name}"

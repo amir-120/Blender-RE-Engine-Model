@@ -4,33 +4,33 @@ from .REEMDFFile import *
 from . import CustomNodes
 import bpy
 
-
 def GuessREShaderType(matName: str,
                       mdfNode: bpy.types.Node = None) -> CustomNodes.REShaderNodeTreeEnum or Literal['Skin & WM']:
     if mdfNode is not None:
         mdfOutputNames: list[str] = [socket.name for socket in mdfNode.outputs]
 
         if ("WrinkleDiffuseMap1" in mdfOutputNames and "WrinkleDiffuseMap2" in mdfOutputNames and
-                            "WrinkleDiffuseMap3" in mdfOutputNames and "WrinkleNormalMap1" in mdfOutputNames and
-                            "WrinkleNormalMap2" in mdfOutputNames and "WrinkleNormalMap3" in mdfOutputNames) or \
+            "WrinkleDiffuseMap3" in mdfOutputNames and "WrinkleNormalMap1" in mdfOutputNames and
+            "WrinkleNormalMap2" in mdfOutputNames and "WrinkleNormalMap3" in mdfOutputNames) or \
                 ("SSS_Channel" in mdfOutputNames and "Weight1" in mdfOutputNames):
             return 'Skin & WM'
 
         if "OccDark" in mdfOutputNames and "BaseShiftMap" in mdfOutputNames:
             return 'Hair Shader'
 
-        if "UseAlphaMap" in mdfOutputNames:
-            return 'Transparent Shader'
-
-        if "Transparent" in mdfOutputNames:
+        if "BaseAlphaMap" in mdfOutputNames:
             return 'Alba Shader'
 
-        if "SSS_Channel" in mdfOutputNames and "Weight1" in mdfOutputNames:
-            return 'Skin & WM'
-
         if "ReflectImage_Intensity" in mdfOutputNames and "ReflectImage_Distortion" in mdfOutputNames or \
-            "ReflectImage_UseFishEye" in mdfOutputNames:
+                "ReflectImage_UseFishEye" in mdfOutputNames:
             return 'EyeOuter Shader'
+
+        if "SSS_Channel" in mdfOutputNames and "OcclusionIntensity" in mdfOutputNames and \
+                "UseAlphaMap" in mdfOutputNames and "DissolveControl" in mdfOutputNames:
+            'Skin Shader'
+
+        if "UseAlphaMap" in mdfOutputNames:
+            return 'Transparent Shader'
 
     if matName in GuessREShaderType.nameTypeMap.keys():
         return GuessREShaderType.nameTypeMap[matName]
@@ -40,8 +40,10 @@ GuessREShaderType.nameTypeMap = {
     "m_eye"         : 'Eye Shader',
     "m_eyebrow"     : 'Transparent Shader',
     "m_eyelash"     : 'Transparent Shader',
+    "m_eyelash2"    : 'Transparent Shader',
     "m_beard"       : 'Hair Shader',
     "m_hair"        : 'Hair Shader',
+    "hair_mat"      : 'Hair Shader',
     "m_eyeduct"     : 'Alba Shader',
     "m_eyeshadow"   : 'Alba Shader',
     "m_eyeouter"    : 'EyeOuter Shader',
@@ -124,26 +126,25 @@ def CreateMaterial(name: str, replace: bool = True) -> bpy.types.Material:
 
 
 def AddRETextureToMaterial(mat: bpy.types.Material, texPath: str) -> bpy.types.Node:
-    imageName = os.path.basename(texPath)
+    imageName = os.path.splitext(os.path.basename(texPath))[0]
+    blenderImage: bpy.types.Image
 
-    if (blTex := bpy.data.images.get(imageName)) is not None:
-        nodes = mat.node_tree.nodes
-        tex = nodes.new('ShaderNodeTexImage')
-        tex.image = blTex
-        return tex
+    if (img := bpy.data.images.get(imageName)) is not None:
+        blenderImage = img
+    else:
+        rawImage = TEX(texPath, 'RGBA', floatMode=True, vFlip=True)
 
-    rawImage = TEX(texPath, 'RGBA', floatMode=True, vFlip=True)
+        blenderImage = bpy.data.images.new(imageName, rawImage.width, rawImage.height, alpha=True,
+                                           is_data=rawImage.isLinear)
+        blenderImage.alpha_mode = 'CHANNEL_PACKED'
+        blenderImage.pixels = rawImage.buffer
+        blenderImage.update()
 
-    blenderImage = bpy.data.images.new(f"{mat.name} - {imageName}", rawImage.width, rawImage.height, alpha=True,
-                                       is_data=rawImage.isLinear)
-    blenderImage.alpha_mode = 'CHANNEL_PACKED'
-    blenderImage.pixels = rawImage.buffer.copy()
-    blenderImage.update()
-
-    # Save image in blend file
-    blenderImage.filepath_raw = f"/tmp/{os.path.basename(texPath)}.png"
-    blenderImage.file_format = 'TARGA'
-    blenderImage.save()
+        # Pack image in blend file
+        blenderImage.pack()
+        #blenderImage.filepath = ""
+        #blenderImage.filepath_raw = ""
+        blenderImage.file_format = 'TARGA'
 
     nodes = mat.node_tree.nodes
     texNode = nodes.new('ShaderNodeTexImage')
@@ -191,8 +192,10 @@ def GetNodePriorityByType(node):
 
 
 def GetNodePriorityRE(node: bpy.types.Node):
-    if node.type == 'TEX_IMAGE' or node.type == 'GROUP_INPUT' or node.type == 'TEX_MUSGRAVE' or\
-            node.type == 'TEX_BRICK' or node.type == 'TEX_NOISE' or node.type == 'TEX_VORONOI':
+    if node.type == 'GROUP_INPUT' or node.type == 'UVMAP':
+        return -7
+    if node.type == 'TEX_IMAGE' or node.type == 'TEX_MUSGRAVE' or node.type == 'TEX_BRICK' or\
+            node.type == 'TEX_NOISE' or node.type == 'TEX_VORONOI':
         return -6
     if node.type == 'VALUE' or node.type == 'ATTRIBUTE':
         return -5
@@ -263,8 +266,8 @@ def RearrangeNodesInEditorWindow(nodes: bpy.types.Nodes, priorityFunction: Calla
         numNodesCh = len(nodesCh)
         sumHeight = 0
         for node in nodesCh:
-            node.hide = numNodesCh > 2 or node.name.endswith(" - NormalMap")
-            sumHeight += node.height if not node.hide else node.width_hidden
+            node.hide = numNodesCh > 1 or node.name.endswith(" - NormalMap")
+            sumHeight += node.height if not node.hide else node.bl_height_min
 
         extentsH = (0.5 + paddingY) * sumHeight
         if numNodesCh > 1:

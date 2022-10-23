@@ -2,7 +2,7 @@ from .BinaryFunctions import *
 from enum import Enum
 
 class Header:
-    def __init__(self, buffer: list[int], pos: int = 0):
+    def __init__(self, buffer: bytes or bytearray or list[int], pos: int = 0):
         self.magic = ReadInt32(buffer, pos + 0)
         if self.magic != 0x4853454D:  # MESH
             raise RuntimeError("Wrong magic, file format not supported!")
@@ -29,36 +29,17 @@ class Header:
 
     size = 128
 
-class VertexPosition:
-    def __init__(self, buffer: list[int], pos: int = 0):
-        self.x = ReadFloat(buffer, pos + 0)
-        self.y = ReadFloat(buffer, pos + 4)
-        self.z = ReadFloat(buffer, pos + 8)
-
-    size = 12
-
-
-class Face:
-    def __init__(self, buffer: list[int], pos: int = 0):
-        self.indices: list[int] = []
-        self.indices.append(ReadInt16(buffer, pos + 0))
-        self.indices.append(ReadInt16(buffer, pos + 2))
-        self.indices.append(ReadInt16(buffer, pos + 4))
-
-    size = 6
-
-
 class NormalAndTangent:
-    def __init__(self, buffer: list[int], pos: int = 0):
-
-        self.normalX = self.__NormalizeByte(ReadByte(buffer, pos + 0, signed=True))
-        self.normalY = self.__NormalizeByte(ReadByte(buffer, pos + 1, signed=True))
-        self.normalZ = self.__NormalizeByte(ReadByte(buffer, pos + 2, signed=True))
-        self.normalW = self.__NormalizeByte(ReadByte(buffer, pos + 3, signed=True))
-        self.tangentX = self.__NormalizeByte(ReadByte(buffer, pos + 4, signed=True))
-        self.tangentY = self.__NormalizeByte(ReadByte(buffer, pos + 5, signed=True))
-        self.tangentZ = self.__NormalizeByte(ReadByte(buffer, pos + 6, signed=True))
-        self.tangentW = self.__NormalizeByte(ReadByte(buffer, pos + 7, signed=True))
+    def __init__(self, buffer: bytes or bytearray or list[int], pos: int = 0):
+        readBuff = ReadByte(buffer, pos + 0, 8, signed=True)
+        self.normalX = self.__NormalizeByte(readBuff[0])
+        self.normalY = self.__NormalizeByte(readBuff[1])
+        self.normalZ = self.__NormalizeByte(readBuff[2])
+        self.normalW = self.__NormalizeByte(readBuff[3])
+        self.tangentX = self.__NormalizeByte(readBuff[4])
+        self.tangentY = self.__NormalizeByte(readBuff[5])
+        self.tangentZ = self.__NormalizeByte(readBuff[6])
+        self.tangentW = self.__NormalizeByte(readBuff[7])
 
     @staticmethod
     def __NormalizeByte(byte: int) -> float:
@@ -66,68 +47,37 @@ class NormalAndTangent:
 
     size = 8
 
-
-class UV:
-    def __init__(self, buffer: list[int], pos: int = 0):
-        self.u = 1.0 - ReadHalfFloat(buffer, pos + 0)
-        self.v = 1.0 - ReadHalfFloat(buffer, pos + 2)
-
-    size = 4
-
-
 class SkinWeights:
-    def __init__(self, buffer: list[int], pos: int = 0):
-        self.indices: list[int] = []
-        self.indices.append(ReadByte(buffer, pos + 0))
-        self.indices.append(ReadByte(buffer, pos + 1))
-        self.indices.append(ReadByte(buffer, pos + 2))
-        self.indices.append(ReadByte(buffer, pos + 3))
-        self.indices.append(ReadByte(buffer, pos + 4))
-        self.indices.append(ReadByte(buffer, pos + 5))
-        self.indices.append(ReadByte(buffer, pos + 6))
-        self.indices.append(ReadByte(buffer, pos + 7))
-
-        self.weights: list[float] = []
-        self.weights.append(ReadByte(buffer, pos + 8) / 255.0)
-        self.weights.append(ReadByte(buffer, pos + 9) / 255.0)
-        self.weights.append(ReadByte(buffer, pos + 10) / 255.0)
-        self.weights.append(ReadByte(buffer, pos + 11) / 255.0)
-        self.weights.append(ReadByte(buffer, pos + 12) / 255.0)
-        self.weights.append(ReadByte(buffer, pos + 13) / 255.0)
-        self.weights.append(ReadByte(buffer, pos + 14) / 255.0)
-        self.weights.append(ReadByte(buffer, pos + 15) / 255.0)
+    def __init__(self, buffer: bytes or bytearray or list[int], pos: int = 0):
+        self.indices: np.ndarray[int] = ReadByte(buffer, pos, 8)
+        self.weights: np.ndarray[float] = np.array([w / 255.0 for w in ReadByte(buffer, pos + 8, 8)])
 
     size = 16
 
 class BoneTransform:
-    def __init__(self, buffer: list[int], pos: int = 0):
-        self.transformMatrix: list[list[float]] = [[ReadFloat(buffer, pos + 0), ReadFloat(buffer, pos + 4),
-                                                    ReadFloat(buffer, pos + 8), ReadFloat(buffer, pos + 12)],
-                                                   [ReadFloat(buffer, pos + 16), ReadFloat(buffer, pos + 20),
-                                                    ReadFloat(buffer, pos + 24), ReadFloat(buffer, pos + 28)],
-                                                   [ReadFloat(buffer, pos + 32), ReadFloat(buffer, pos + 36),
-                                                    ReadFloat(buffer, pos + 40), ReadFloat(buffer, pos + 48)],
-                                                   [ReadFloat(buffer, pos + 48), ReadFloat(buffer, pos + 52),
-                                                    ReadFloat(buffer, pos + 56), ReadFloat(buffer, pos + 60)]]
+    def __init__(self, buffer: bytes or bytearray or list[int], pos: int = 0):
+        self.transformMatrix: np.ndarray[tuple[float, float, float, float]] = ReadFloat(buffer,
+                                                                                        pos + 0, 16).reshape((-1, 4))
 
     size = 64
 
 class BoneHierarchy:
-    def __init__(self, buffer: list[int], pos: int = 0):
-        self.index = ReadInt16(buffer, pos + 0, signed=True)
-        self.parent = ReadInt16(buffer, pos + 2, signed=True)
-        self.nextSibling = ReadInt16(buffer, pos + 4, signed=True)
-        self.nextChild = ReadInt16(buffer, pos + 6, signed=True)
-        self.cousin = ReadInt16(buffer, pos + 8, signed=True)
-        self.ukn1 = ReadInt16(buffer, pos + 10, signed=True)
-        self.ukn2 = ReadInt16(buffer, pos + 12, signed=True)
-        self.ukn3 = ReadInt16(buffer, pos + 14, signed=True)
+    def __init__(self, buffer: bytes or bytearray or list[int], pos: int = 0):
+        readBuffer = ReadInt16(buffer, pos, 8, signed=True)
+        self.index = readBuffer[0]
+        self.parent = readBuffer[1]
+        self.nextSibling = readBuffer[2]
+        self.nextChild = readBuffer[3]
+        self.cousin = readBuffer[4]
+        self.ukn1 = readBuffer[5]
+        self.ukn2 = readBuffer[6]
+        self.ukn3 = readBuffer[7]
 
     size = 16
 
 
 class ArmatureHeader:
-    def __init__(self, buffer: list[int], pos: int = 0):
+    def __init__(self, buffer: bytes or bytearray or list[int], pos: int = 0):
         self.boneCount = ReadInt32(buffer, pos + 0)
         self.skinMapSize = ReadInt32(buffer, pos + 4)
         self.ukn1 = ReadInt64(buffer, pos + 8)
@@ -137,25 +87,21 @@ class ArmatureHeader:
         self.inverseGlobalBoneTransformsTableOffset = ReadInt32(buffer, pos + 40)
 
         # Calculated data
-        self.skinBoneMap: list[int] = [] # Index of the bone index in the BoneMapIndices
-        self.boneHierArchy: list[BoneHierarchy] = []
-        self.localBoneTransforms: list[BoneTransform] = []
-        self.globalBoneTransforms: list[BoneTransform] = []
-        self.inverseGlobalTransfroms: list[BoneTransform] = []
-
-        for i in range(self.skinMapSize):
-            self.skinBoneMap.append(ReadInt16(buffer, pos + self.size + i * 2))
+        # Index of the bone index in the BoneMapIndices
+        self.skinBoneMap: np.ndarray[int] = ReadInt16(buffer, pos + self.size, self.skinMapSize)
+        self.boneHierarchy: list[BoneHierarchy] = [None] * self.boneCount
+        self.localBoneTransforms: list[BoneTransform] = [None] * self.boneCount
+        self.globalBoneTransforms: list[BoneTransform] = [None] * self.boneCount
+        self.inverseGlobalTransfroms: list[BoneTransform] = [None] * self.boneCount
 
         for i in range(self.boneCount):
-            self.boneHierArchy.append(BoneHierarchy(buffer, self.boneHierarchyTableOffset + i * BoneHierarchy.size))
-            self.localBoneTransforms.append(BoneTransform(buffer,
-                                                          self.localBoneTransformsTableOffset + i * BoneTransform.size))
-            self.globalBoneTransforms.append(BoneTransform(buffer,
-                                                           self.globalBoneTransformsTableOffset +
-                                                           i * BoneTransform.size))
-            self.inverseGlobalTransfroms.append(BoneTransform(buffer,
-                                                              self.inverseGlobalBoneTransformsTableOffset +
-                                                              i * BoneTransform.size))
+            self.boneHierarchy[i] = BoneHierarchy(buffer, self.boneHierarchyTableOffset + i * BoneHierarchy.size)
+            self.localBoneTransforms[i] = BoneTransform(buffer,
+                                                          self.localBoneTransformsTableOffset + i * BoneTransform.size)
+            self.globalBoneTransforms[i] = BoneTransform(buffer, self.globalBoneTransformsTableOffset +
+                                                           i * BoneTransform.size)
+            self.inverseGlobalTransfroms[i] = BoneTransform(buffer, self.inverseGlobalBoneTransformsTableOffset +
+                                                              i * BoneTransform.size)
 
     size = 48
 
@@ -168,7 +114,7 @@ class VertexElementHeader:
         UV1 = 3
         BoneInfo = 4
 
-    def __init__(self, buffer: list[int], pos: int = 0):
+    def __init__(self, buffer: bytes or bytearray or list[int], pos: int = 0):
         self.elementType = self.ElementType(ReadInt16(buffer, pos + 0))
         self.bytesPerVertex = ReadInt16(buffer, pos + 2)
         self.offsetInVertexBuffer = ReadInt32(buffer, pos + 4)
@@ -177,28 +123,29 @@ class VertexElementHeader:
 
 
 class GeometryBuffersHeader:
-    def __init__(self, buffer: list[int], pos: int = 0, fileBuffer: list[int] = -1):
+    def __init__(self, buffer: bytes or bytearray or list[int], pos: int = 0, fileBuffer: list[int] = -1):
         self.vertexElementHeadersOffset = ReadInt64(buffer, pos + 0)
         self.vertexBufferOffset = ReadInt64(buffer, pos + 8)
         self.faceIndexBufferOffset = ReadInt64(buffer, pos + 16)
         self.vertexBufferSize = ReadInt32(buffer, pos + 24)
         self.faceIndexBufferSize = ReadInt32(buffer, pos + 28)
-        self.vertexElementCount = [ReadInt16(buffer, pos + 32), ReadInt16(buffer, pos + 34)]
+        self.vertexElementCount = ReadInt16(buffer, pos + 32, 2)
         self.ukn = ReadInt64(buffer, pos + 36)
         self.blendShapesOffset = ReadInt32(buffer, pos + 44, signed=True)
 
         # Calculated data
         self.fileBuffer = fileBuffer
-        self.vertexElementHeaders: list[VertexElementHeader] = []
+        self.vertexElementHeaders: list[VertexElementHeader] = [None] * self.vertexElementCount[1]
+
         for i in range(self.vertexElementCount[1]):
-            self.vertexElementHeaders.append(VertexElementHeader(buffer, self.vertexElementHeadersOffset +
-                                                                 i * VertexElementHeader.size))
+            self.vertexElementHeaders[i] = VertexElementHeader(buffer, self.vertexElementHeadersOffset +
+                                                                 i * VertexElementHeader.size)
 
     size = 48
 
 
 class SubMesh:
-    def __init__(self, buffer: list[int], pos: int = 0, vertexBufferHeader: GeometryBuffersHeader = -1,
+    def __init__(self, buffer: bytes or bytearray or list[int], pos: int = 0, vertexBufferHeader: GeometryBuffersHeader = -1,
                  vertexCount: int = -1, faceBufferOffset: int = 0, isShadowGeo: bool = False, preview: bool = False):
         self.materialID = ReadInt32(buffer, pos + 0)
         self.faceIndexCount = ReadInt32(buffer, pos + 4)
@@ -214,21 +161,16 @@ class SubMesh:
         if vertexBufferHeader == -1 or vertexBufferHeader.fileBuffer == -1:
             return
 
-        self.faces: list[Face] = []
-        self.vertexBuffer: list[VertexPosition] = []
-        self.normalsTangents: list[NormalAndTangent] = []
-        self.uv0s: list[UV] = []
-        self.uv1s: list[UV] = []
-        self.boneInfo: list[SkinWeights] = []
+        self.faceIndexBufferPos = faceBufferOffset + vertexBufferHeader.faceIndexBufferOffset +\
+                                                        self.faceIndicesBefore * 2
 
-        self.faceIndexBufferRange: tuple[int, int]
-        self.faceIndexBufferRange = (faceBufferOffset + vertexBufferHeader.faceIndexBufferOffset +
-                                     self.faceIndicesBefore * 2, faceBufferOffset +
-                                     vertexBufferHeader.faceIndexBufferOffset + self.faceIndicesBefore * 2 +
-                                     self.faceIndexCount * 2)
-
-        for i in range(self.faceIndexCount // 3):
-            self.faces.append(Face(vertexBufferHeader.fileBuffer, self.faceIndexBufferRange[0] + i * Face.size))
+        self.faces: np.ndarray[tuple[int, int, int]] = ReadInt16(buffer, self.faceIndexBufferPos,
+                                                           self.faceIndexCount).reshape((-1, 3))
+        self.vertexBuffer: np.ndarray[tuple[float, float, float]] #[None] * self.vertexCount
+        self.normalsTangents: list[NormalAndTangent] = [None] * self.vertexCount
+        self.uv0s: np.ndarray[tuple[float, float]] = np.array([]) #[None] * self.vertexCount
+        self.uv1s: np.ndarray[tuple[float, float]] = np.array([])#[None] * self.vertexCount
+        self.boneInfo: list[SkinWeights] = [None] * self.vertexCount
 
         self.elemIdxRange: tuple[int, int]
         if isShadowGeo:
@@ -242,74 +184,53 @@ class SubMesh:
             self.elementOffsets.append(vertexBufferHeader.vertexBufferOffset + elementInfo.offsetInVertexBuffer)
             match elementInfo.elementType:
                 case elementInfo.ElementType.VertexPosition:
-                    for j in range(self.vertexCount):
-                        self.vertexBuffer.append(VertexPosition(vertexBufferHeader.fileBuffer,
-                                                                vertexBufferHeader.vertexBufferOffset +
-                                                                elementInfo.offsetInVertexBuffer +
-                                                                self.verticesBefore * elementInfo.bytesPerVertex +
-                                                                j * elementInfo.bytesPerVertex))
+                    self.vertexBuffer = ReadFloat(buffer, vertexBufferHeader.vertexBufferOffset +
+                                                  elementInfo.offsetInVertexBuffer + self.verticesBefore *
+                                                  elementInfo.bytesPerVertex, 3 * self.vertexCount).reshape((-1, 3))
 
                 case elementInfo.ElementType.NormalsTangents:
                     for j in range(self.vertexCount):
-                        self.normalsTangents.append(NormalAndTangent(vertexBufferHeader.fileBuffer,
-                                                                     vertexBufferHeader.vertexBufferOffset +
-                                                                     elementInfo.offsetInVertexBuffer +
-                                                                     self.verticesBefore * elementInfo.bytesPerVertex +
-                                                                     j * elementInfo.bytesPerVertex))
+                        self.normalsTangents[j] = NormalAndTangent(vertexBufferHeader.fileBuffer,
+                                                                   vertexBufferHeader.vertexBufferOffset +
+                                                                   elementInfo.offsetInVertexBuffer +
+                                                                   self.verticesBefore * elementInfo.bytesPerVertex +
+                                                                   j * elementInfo.bytesPerVertex)
 
                 case elementInfo.ElementType.UV0:
-                    for j in range(self.vertexCount):
-                        self.uv0s.append(UV(vertexBufferHeader.fileBuffer, vertexBufferHeader.vertexBufferOffset +
-                                            elementInfo.offsetInVertexBuffer + self.verticesBefore *
-                                            elementInfo.bytesPerVertex + j * elementInfo.bytesPerVertex))
-
+                    self.uv0s = ReadHalfFloat(buffer, vertexBufferHeader.vertexBufferOffset +
+                                              elementInfo.offsetInVertexBuffer + self.verticesBefore *
+                                              elementInfo.bytesPerVertex, 2 * self.vertexCount).reshape((-1, 2))
+#
                 case elementInfo.ElementType.UV1:
-                    for j in range(self.vertexCount):
-                        self.uv1s.append(UV(vertexBufferHeader.fileBuffer, vertexBufferHeader.vertexBufferOffset +
-                                            elementInfo.offsetInVertexBuffer + self.verticesBefore *
-                                            elementInfo.bytesPerVertex + j * elementInfo.bytesPerVertex))
+                    self.uv1s = ReadHalfFloat(buffer, vertexBufferHeader.vertexBufferOffset +
+                                              elementInfo.offsetInVertexBuffer + self.verticesBefore *
+                                              elementInfo.bytesPerVertex, 2 * self.vertexCount).reshape((-1, 2))
 
                 case elementInfo.ElementType.BoneInfo:
                     for j in range(self.vertexCount):
-                        self.boneInfo.append(SkinWeights(vertexBufferHeader.fileBuffer,
+                        self.boneInfo[j] = SkinWeights(vertexBufferHeader.fileBuffer,
                                                          vertexBufferHeader.vertexBufferOffset +
                                                          elementInfo.offsetInVertexBuffer + self.verticesBefore *
-                                                         elementInfo.bytesPerVertex + j * elementInfo.bytesPerVertex))
+                                                         elementInfo.bytesPerVertex + j * elementInfo.bytesPerVertex)
 
     size = 16
 
-    def GetVertexBuffer(self) -> list[tuple[float, float, float]]:
-        retVertexBuffer: list[tuple[float, float, float]] = []
-
-        for i in range(self.vertexCount):
-            retVertexBuffer.append((self.vertexBuffer[i].x, self.vertexBuffer[i].y, self.vertexBuffer[i].z))
-        return retVertexBuffer
-
-    def GetFaceIndexBuffer(self) -> list[tuple[int, int, int]]:
-        retFaceIndexBuffer: list[tuple[int, int, int]] = []
-
-        for i in range(self.faceIndexCount // 3):
-            retFaceIndexBuffer.append((self.faces[i].indices[0], self.faces[i].indices[1], self.faces[i].indices[2]))
-        return retFaceIndexBuffer
-
-
-
 class Mainmesh:
-    def __init__(self, buffer: list[int], pos: int = 0, vertexBufferHeader: GeometryBuffersHeader = -1,
-                 faceBufferOffset: int = 0, isShadowGeo: bool = False):
+    def __init__(self, buffer: bytes or bytearray or list[int], pos: int = 0,
+                 vertexBufferHeader: GeometryBuffersHeader = -1, faceBufferOffset: int = 0, isShadowGeo: bool = False):
         self.groupID = ReadByte(buffer, pos + 0)
         self.submeshCount = ReadByte(buffer, pos + 1)
-        self.ukn1: list[int] = [ReadByte(buffer, pos + 2), ReadByte(buffer, pos + 3)]
+        self.ukn1: np.ndarray[int] = ReadByte(buffer, pos + 2, 2)
         self.ukn2 = ReadInt32(buffer, pos + 4)
         self.mainmeshVertexCount = ReadInt32(buffer, pos + 8)
         self.mainmeshFaceIndexCount = ReadInt32(buffer, pos + 12)
 
         # Calculated data
         Mainmesh.verticesRead += self.mainmeshVertexCount
-        self.submeshes: list[SubMesh] = []
+        self.submeshes: list[SubMesh]  = [None] * self.submeshCount
         for i in range(self.submeshCount):
-            self.submeshes.append(SubMesh(buffer, pos + Mainmesh.size + i * SubMesh.size, vertexBufferHeader,
-                                          faceBufferOffset=faceBufferOffset, isShadowGeo=isShadowGeo, preview=True))
+            self.submeshes[i] = SubMesh(buffer, pos + Mainmesh.size + i * SubMesh.size, vertexBufferHeader,
+                                          faceBufferOffset=faceBufferOffset, isShadowGeo=isShadowGeo, preview=True)
 
         for i in range(1, self.submeshCount):
             self.submeshes[i - 1].vertexCount = self.submeshes[i].verticesBefore - self.submeshes[i - 1].verticesBefore
@@ -330,34 +251,32 @@ class Mainmesh:
 
 
 class LODGroup:
-    def __init__(self, buffer: list[int], pos: int = 0, vertexBufferHeader: GeometryBuffersHeader = -1,
-                 faceBufferOffset: int = 0, isShadowGeo: bool = False):
+    def __init__(self, buffer: bytes or bytearray or list[int], pos: int = 0,
+                 vertexBufferHeader: GeometryBuffersHeader = -1, faceBufferOffset: int = 0, isShadowGeo: bool = False):
         self.mainmeshCount = ReadByte(buffer, pos + 0)
-        self.ukn1 = [ReadByte(buffer, pos + 1), ReadByte(buffer, pos + 2), ReadByte(buffer, pos + 3)]
+        self.ukn1 = ReadByte(buffer, pos + 1, 3)
         self.ukn2 = ReadFloat(buffer, pos + 4)
         self.mainmeshHeaderOffsetsOffset = ReadInt64(buffer, pos + 8)
 
         # Calculated info
         self.faceBufferTotalSize: int = 0
-        self.mainmeshOffsets: list[int] = []
-        self.mainmeshes: list[Mainmesh] = []
+        self.mainmeshOffsets: list[int] = [None] * self.mainmeshCount
+        self.mainmeshes: list[Mainmesh] = [None] * self.mainmeshCount
         for i in range(self.mainmeshCount):
-            self.mainmeshOffsets.append(ReadInt64(buffer, self.mainmeshHeaderOffsetsOffset + i * 8))
-            self.mainmeshes.append(Mainmesh(buffer, self.mainmeshOffsets[-1], vertexBufferHeader, faceBufferOffset,
-                                            isShadowGeo))
+            self.mainmeshOffsets[i] = ReadInt64(buffer, self.mainmeshHeaderOffsetsOffset + i * 8)
+            self.mainmeshes[i] = Mainmesh(buffer, self.mainmeshOffsets[i], vertexBufferHeader, faceBufferOffset,
+                                            isShadowGeo)
             # Size of each index value in bytes (unsigned short)
-            self.faceBufferTotalSize += self.mainmeshes[-1].mainmeshFaceIndexCount * 2
+            self.faceBufferTotalSize += self.mainmeshes[i].mainmeshFaceIndexCount * 2
     size = 16
 
 
 class BoundingBox:
-    def __init__(self, buffer: list[int], pos: int = 0):
+    def __init__(self, buffer: bytes or bytearray or list[int], pos: int = 0):
         # Bottom back left
-        self.min: tuple[float, float, float, float] = (ReadFloat(buffer, pos + 32), ReadFloat(buffer, pos + 36),
-                                                       ReadFloat(buffer, pos + 40), ReadFloat(buffer, pos + 44))
+        self.min: tuple[float, float, float, float] = tuple(ReadFloat(buffer, pos + 32, 4))
         # Top right front
-        self.max: tuple[float, float, float, float] = (ReadFloat(buffer, pos + 48), ReadFloat(buffer, pos + 52),
-                                                       ReadFloat(buffer, pos + 56), ReadFloat(buffer, pos + 60))
+        self.max: tuple[float, float, float, float] = tuple(ReadFloat(buffer, pos + 48, 4))
 
         # Calculated data
         self.botLeftBack = self.min
@@ -373,57 +292,56 @@ class BoundingBox:
     size = 32
 
 class ModelInfo:
-    def __init__(self, buffer: list[int], pos: int = 0, vertexBufferHeader: GeometryBuffersHeader = -1,
-                 faceBufferOffset: int = 0, isShadowGeo: bool = False):
+    def __init__(self, buffer: bytes or bytearray or list[int], pos: int = 0,
+                 vertexBufferHeader: GeometryBuffersHeader = -1, faceBufferOffset: int = 0, isShadowGeo: bool = False):
         self.lodGroupCount = ReadByte(buffer, pos + 0)
         self.materialCount = ReadByte(buffer, pos + 1)
         self.uvLayerCount = ReadByte(buffer, pos + 2)
         self.ukn1 = ReadByte(buffer, pos + 3)
         self.totalMeshCount = ReadInt32(buffer, pos + 4)
         self.ukn2 = ReadInt64(buffer, pos + 8)
-        self.ukn3 = [ReadFloat(buffer, pos + 16), ReadFloat(buffer, pos + 20), ReadFloat(buffer, pos + 24),
-                     ReadFloat(buffer, pos + 28)]
+        self.ukn3 = ReadFloat(buffer, pos + 16, 4)
         self.boundingBox = BoundingBox(buffer, pos + 32)
         self.ukn4 = ReadInt64(buffer, pos + 64)
 
         # Calculated info
         self.faceBufferTotalSize: int = 0
         self.uniqueLodCount = 0
-        self.lodGroupOffsets: list[int] = []
+        self.lodGroupOffsets: list[int] = [None] * self.lodGroupCount
         for i in range(self.lodGroupCount):
-            self.lodGroupOffsets.append(ReadInt64(buffer, pos + 72 + i * 8))
+            self.lodGroupOffsets[i] = ReadInt64(buffer, pos + 72 + i * 8)
         self.uniqueLODGroupOffsets = list(dict.fromkeys(self.lodGroupOffsets))
         self.uniqueLodCount = self.uniqueLODGroupOffsets.__len__()
 
-        self.lodGroups: list[LODGroup] = []
+        self.lodGroups = [None] * self.uniqueLodCount
         Mainmesh.Reset()
         for i in range(self.uniqueLodCount):
-            self.lodGroups.append(LODGroup(buffer, self.uniqueLODGroupOffsets[i], vertexBufferHeader, faceBufferOffset,
-                                           isShadowGeo))
-            self.faceBufferTotalSize += self.lodGroups[-1].faceBufferTotalSize
+            self.lodGroups[i] = LODGroup(buffer, self.uniqueLODGroupOffsets[i], vertexBufferHeader, faceBufferOffset,
+                                           isShadowGeo)
+            self.faceBufferTotalSize += self.lodGroups[i].faceBufferTotalSize
 
     size = 72
 
 
 class NameTable:
-    def __init__(self, buffer: list[int], pos: int = 0, nodeCount: int = 0):
-        self.nameOffsets: list[int] = []
-        self.nameList: list[str] = []
+    def __init__(self, buffer: bytes or bytearray or list[int], pos: int = 0, nodeCount: int = 0):
+        self.nameOffsets: list[int] = [int] * nodeCount
+        self.nameList: list[str] = [str] * nodeCount
 
+        stringOffsets = ReadInt64(buffer, pos, nodeCount)
         for i in range(nodeCount):
-            stringOffset = ReadInt64(buffer, pos + i * 8)
-            self.nameOffsets.append(stringOffset)
-            self.nameList.append(ReadString(buffer, stringOffset))
+            self.nameOffsets[i] = stringOffsets[i]
+            self.nameList[i] = ReadString(buffer, stringOffsets[i])
 
 
 class BoundingBoxHeader:
-    def __init__(self, buffer: list[int], pos: int = 0):
+    def __init__(self, buffer: bytes or bytearray or list[int], pos: int = 0):
         self.boundingBoxCount = ReadInt64(buffer, pos + 0)
         self.boundingBoxBufferOffset = ReadInt64(buffer, pos + 8)
 
 
 class REEMesh:
-    def __init__(self, fileBuffer: list[int]):
+    def __init__(self, fileBuffer: bytes or bytearray or list[int]):
         # Taking the file buffer in
         self.fileBuffer = fileBuffer
 
@@ -435,11 +353,12 @@ class REEMesh:
                                                         self.fileBuffer)
 
         # Read vertex element headers
-        self.vertexElementHeaders: list[VertexElementHeader] = []
+        self.vertexElementHeaders: list[VertexElementHeader] =\
+            [VertexElementHeader] * self.vertexBufferHeader.vertexElementCount[1]
         for i in range(self.vertexBufferHeader.vertexElementCount[1]):
-            self.vertexElementHeaders.append(VertexElementHeader(self.fileBuffer,
+            self.vertexElementHeaders[i] = VertexElementHeader(self.fileBuffer,
                                                                  self.vertexBufferHeader.vertexElementHeadersOffset +
-                                                                 i * VertexElementHeader.size))
+                                                                 i * VertexElementHeader.size)
 
         # Read LOD groups descriptions
         self.mainModel = ModelInfo(self.fileBuffer, self.header.lodDescriptionsOffset, self.vertexBufferHeader)
@@ -458,21 +377,19 @@ class REEMesh:
         self.nameTable = NameTable(self.fileBuffer, self.header.nameTableOffset, self.header.nameTableNodeCount)
 
         # Material name index buffer
-        self.materialNameIndexBuffer: list[int] = []
-        for i in range(max([self.mainModel.materialCount, self.shadowModel.materialCount]) if self.hasShadowGeo else
-                       self.mainModel.materialCount):
-            self.materialNameIndexBuffer.append(ReadInt16(self.fileBuffer, self.header.materialNameIndexBufferOffset +
-                                                          i * 2))
+        matNIdxBuffLen = max([self.mainModel.materialCount, self.shadowModel.materialCount])\
+            if self.hasShadowGeo else self.mainModel.materialCount
+        self.materialNameIndexBuffer: np.ndarray[int] = ReadInt16(self.fileBuffer, self.header.materialNameIndexBufferOffset,
+                                                            matNIdxBuffLen)
 
         # Bone name index buffer
-        self.boneNameIndexBuffer: list[int] = []
-        for i in range(self.armature.boneCount):
-            self.boneNameIndexBuffer.append(ReadInt16(self.fileBuffer, self.header.boneNameIndexBufferOffset + i * 2))
+        self.boneNameIndexBuffer: np.ndarray[int] = ReadInt16(self.fileBuffer, self.header.boneNameIndexBufferOffset,
+                                                        self.armature.boneCount)
 
         # Skin map bounding boxes
         self.boundingBoxHeader = BoundingBoxHeader(self.fileBuffer, self.header.boundingBoxHeaderOffset)
 
-        self.boundingBoxes: list[BoundingBox] = []
+        self.boundingBoxes: list[BoundingBox] = [BoundingBox] * self.boundingBoxHeader.boundingBoxCount
         for i in range(self.boundingBoxHeader.boundingBoxCount):
-            self.boundingBoxes.append(BoundingBox(self.fileBuffer, self.boundingBoxHeader.boundingBoxBufferOffset + i *
-                                                  BoundingBox.size))
+            self.boundingBoxes[i] = BoundingBox(self.fileBuffer, self.boundingBoxHeader.boundingBoxBufferOffset + i *
+                                                  BoundingBox.size)
