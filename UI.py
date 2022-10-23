@@ -7,7 +7,6 @@ class UIProps(PropertyGroup):
 
     meshPath: StringProperty(
         name="Mesh",
-        subtype='FILE_PATH',
         description="Path to the mesh file",
         default="",
         options={'TEXTEDIT_UPDATE'}
@@ -15,7 +14,6 @@ class UIProps(PropertyGroup):
 
     mdfPath: StringProperty(
         name="MDF",
-        subtype='FILE_PATH',
         description="Path to the MDF file",
         default="",
         options={'TEXTEDIT_UPDATE'}
@@ -93,6 +91,7 @@ class OBJECT_PT_REEModel(Panel):
         modelRow = col1ModelBox.row(align=True)
         modelRow.separator(factor=1.0)
         modelRow.prop(props, "meshPath")
+        modelRow.operator(VIEWPORT_OT_FillPaths.bl_idname, text="", icon='FILEBROWSER')
 
         col1.prop(props, "importMDF")
         if props.importMDF:
@@ -102,6 +101,7 @@ class OBJECT_PT_REEModel(Panel):
             materialRow = col1MDFBox.row(align=True)
             materialRow.separator(factor=1.0)
             materialRow.prop(props, "mdfPath")
+            materialRow.operator(VIEWPORT_OT_FillMDFPath.bl_idname, text="", icon='FILEBROWSER')
 
             col1MDFBox.separator(factor=1.0)
             col1MDFBox.prop(props, "hqTextures")
@@ -165,6 +165,92 @@ class OBJECT_OT_REMeshImport(Operator):
     def Unregister(cls):
         bpy.utils.unregister_class(cls)
 
+class VIEWPORT_OT_FillPaths(bpy.types.Operator, ImportHelper):
+    bl_idname = "reengine.fill_paths"
+    bl_label = "Browse"
+    bl_options = {'UNDO', 'PRESET'}
+    bl_description = "Brows the mesh and mdf files"
+
+    directory: StringProperty()
+
+    filename_ext = ".1808282334"
+    filter_glob: StringProperty(default="*.1808282334;*.10", options={'HIDDEN'})
+
+    files: CollectionProperty(
+            name="File Path",
+            type=bpy.types.OperatorFileListElement,
+            )
+
+    def execute(self, context):
+        import os
+
+        props = context.scene.reProps
+        if self.files:
+            ret = {'CANCELLED'}
+            dirName = os.path.dirname(self.filepath)
+            modelPath: tuple[str or None, str or None] = (None, None)
+            for file in self.files:
+                path = os.path.join(dirName, file.name)
+                ext = os.path.splitext(file.name)[1]
+                if ext == ".1808282334":
+                    modelPath = (path, modelPath[1])
+                elif ext == ".10":
+                    modelPath = (modelPath[0], path)
+
+            if modelPath[0] is None:
+                if modelPath[1] is None:
+                    self.report({'ERROR'}, "Select a file")
+                    return ret
+
+                self.report({'ERROR'}, "A mesh file must be selected")
+                return ret
+
+            props.meshPath = modelPath[0]
+            if modelPath[1] is not None:
+                props.importMDF = True
+                props.mdfPath = modelPath[1]
+            ret = {'FINISHED'}
+
+            return ret
+        else:
+            ret = {'CANCELLED'}
+
+            if os.path.splitext(self.filepath)[1] == ".1808282334":
+                props.meshPath = self.filepath
+                ret = {'FINISHED'}
+
+            return ret
+
+    @classmethod
+    def Register(cls):
+        bpy.utils.register_class(cls)
+
+    @classmethod
+    def Unregister(cls):
+        bpy.utils.unregister_class(cls)
+
+class VIEWPORT_OT_FillMDFPath(bpy.types.Operator, ImportHelper):
+    bl_idname = "reengine.fill_mdf_path"
+    bl_label = "Browse"
+    bl_options = {'UNDO', 'PRESET'}
+    bl_description = "Browse the MDF file"
+
+    filename_ext = ".10"
+    filter_glob: StringProperty(default="*.10", options={'HIDDEN'})
+
+    def execute(self, context):
+        context.scene.reProps.mdfPath = self.filepath
+
+        return {'FINISHED'}
+
+    @classmethod
+    def Register(cls):
+        bpy.utils.register_class(cls)
+
+    @classmethod
+    def Unregister(cls):
+        bpy.utils.unregister_class(cls)
+
 class IMPORT_OT_REModel(bpy.types.Operator, ImportHelper):
     bl_idname = "import_mesh.reemesh"
     bl_label = "Import RE Engine Model"
@@ -213,10 +299,10 @@ class IMPORT_OT_REModel(bpy.types.Operator, ImportHelper):
             if modelPath[0] is None:
                 if modelPath[1] is None:
                     self.report({'ERROR'}, "Select a file")
-                    return {'CANCELLED'}
+                    return ret
 
                 self.report({'ERROR'}, "A mesh file must be selected")
-                return {'CANCELLED'}
+                return ret
 
             Import.LoadREModel(modelPath[0], modelPath[1] if modelPath[1] is not None else None, props.hqTextures, None,
                                 props.importHQLODOnly, not props.importShadowGeo, props.importArmature)
@@ -248,6 +334,8 @@ def Register():
     UIProps.Register()
     OBJECT_OT_REMeshImport.Register()
     OBJECT_PT_REEModel.Register()
+    VIEWPORT_OT_FillPaths.Register()
+    VIEWPORT_OT_FillMDFPath.Register()
     IMPORT_OT_REModel.Register()
     bpy.types.TOPBAR_MT_file_import.append(MenuFuncImport)
 
@@ -255,5 +343,7 @@ def Unregister():
     UIProps.Unregister()
     OBJECT_OT_REMeshImport.Unregister()
     OBJECT_PT_REEModel.Unregister()
+    VIEWPORT_OT_FillPaths.Unregister()
+    VIEWPORT_OT_FillMDFPath.Unregister()
     IMPORT_OT_REModel.Unregister()
     bpy.types.TOPBAR_MT_file_import.remove(MenuFuncImport)

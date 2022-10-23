@@ -163,6 +163,7 @@ def AutoconnectRENodes(shaderNode: bpy.types.Node, mdfNode: bpy.types.Node = Non
                                 newUV2TexNode.projection_blend = sourceNode.projection_blend
 
                             newUV2TexNode.name = "2nd UV - " + sourceNode.name
+                            newUV2TexNode.label = "2nd UV - " + sourceNode.label
                             newUV2TexNode.hide = True
                             newUV2TexNode.location = botLeft
                             botLeft = (botLeft[0], botLeft[1] - 17.0)
