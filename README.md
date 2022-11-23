@@ -40,7 +40,7 @@ The "RE Engine Nodes" is a set of nodes that can be used for specific materials 
 
 The add-on by default uses the "RE Engine Dynamic Shader" shader node because it can be changed to any of the other shaders on demand and you can automatically connect nodes using the "Autoconnect" feature by selecting the shader node and pressin the button
 
-[image](https://user-images.githubusercontent.com/18630540/203522611-314366b1-97b3-44cc-857e-f016dc3beebd.png)
+![image](https://user-images.githubusercontent.com/18630540/203522611-314366b1-97b3-44cc-857e-f016dc3beebd.png)
 
 # Important
 This add-on does not support automation for setting up specific types of materials including the emissive materials such as the devil trigger materials, orb materials such as the gem on the DSD's hilt
