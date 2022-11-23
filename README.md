@@ -6,13 +6,17 @@ In collaboration with Galen I decided to automate the process of importing and s
 ## How to Install & Use
 ### Installing
 You need Blender 3.3.1 or newer as that is the version I developed this on
+
 First you need to install the addon download the latest version here: https://github.com/amir-120/Blender-RE-Engine-Model/releases
+
 In Blender go to Edit->Preferences->Add-ons->Install and select the zip file and it should now install the addon
+
 Make sure it is enabled (The checkbox should be like this):
 
 ![image](https://user-images.githubusercontent.com/18630540/203515093-5d40c817-e325-4272-9872-092be7b3db4f.png)
 
 Now that the add-on is intalled and enabled it will add few tools in Blender that we use:
+
 Access the side panel by pressing the N (default key) in a 3d view port on your keyboard, a new menu should now be added to it called "RE Engine Mesh" select a mesh and if you want an MDF file (hold the control button for multi file selection) and configure the options to your liking and press the "Import" button at the bottom of the menu
 
 ![image](https://user-images.githubusercontent.com/18630540/203517040-3efdf424-c95a-4baa-9614-86eb27cd9ad7.png)
@@ -30,6 +34,7 @@ This add-on might not be 100% accurate to how the model looks in the game but if
 ![image](https://user-images.githubusercontent.com/18630540/203521328-523ebc41-fa72-4be7-923d-080516676165.png)
 
 This addon adds two set of nodes that can be used for manually setting up models
+
 The "RE Engine Shaders" is a set of output shaders that goe to the material output
 
 ![image](https://user-images.githubusercontent.com/18630540/203521679-b04141a3-ccfa-4d3b-a655-d9cad1896043.png)
@@ -44,7 +49,9 @@ The add-on by default uses the "RE Engine Dynamic Shader" shader node because it
 
 # Important
 This add-on does not support automation for setting up specific types of materials including the emissive materials such as the devil trigger materials, orb materials such as the gem on the DSD's hilt
+
 This only effects the automatic material settup as there are no shaders for the items mentioned above but you can set them up manually using your own shaders or Blender's default shaders like the "Principled BSDF"
+
 
 Also if you are new to Evee rendering you would want to enable these for better results here:
 
