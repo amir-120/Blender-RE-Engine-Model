@@ -19,7 +19,7 @@ Access the side panel by pressing the N (default key) in a 3d view port on your 
 
 ![image](https://user-images.githubusercontent.com/18630540/203520052-748920d3-22ef-4463-baf1-fe3a11bec9c5.png)
 
-*Note that if you want to import the materials you need to select the MDF file that you want to load the materials from and the MDF file must be in a subdirectory of the "X64" folder that contains the textures in the correct path for that you can just use the unedited folder structure of the .pak that you have extracted or you can manually select the root folder and MDF file inside the "Material" segment when you have "Load Materials" checked*
+**Note that if you want to import the materials you need to select the MDF file that you want to load the materials from and the MDF file must be in a subdirectory of the "X64" folder that contains the textures in the correct path for that you can just use the unedited folder structure of the .pak that you have extracted or you can manually select the root folder and MDF file inside the "Material" segment when you have "Load Materials" checked*
 
 This would import and set up the model for rendering in Eveen (Cycles not set up to work with this add-on yet) using the node system
 
