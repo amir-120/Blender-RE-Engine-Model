@@ -1,9 +1,13 @@
-#from REEMeshFile import *
-import numpy as np
+import timeit
 
-class Test:
-    def __int__(self):
-        self.testsss = 1
+def first():
+    lis = [1, 1,  1, 2, 2, 5, 5, 6, 6]
+    list(dict.fromkeys(lis))
+
+def second():
+    lis = [1, 1, 1, 2, 2, 5, 5, 6, 6]
+    list(set(lis))
+
 
 if __name__ == '__main__':
     #nicoPath = r"C:\Users\Darkness\Desktop\Mod Tools FQ\re_chunk_000\natives\x64\character\p" \
@@ -15,6 +19,8 @@ if __name__ == '__main__':
     #nico = ReadREModel(nicoPath)
     #u = nico.mainModel.lodGroups[0].mainmeshes[2].submeshes[0].uv0s
     #print(u[-1].u, u[-1].v)
+    first = timeit.timeit(first, number=1000000)
+    print(first)
 
-    print(bool([2]))
-
+    second = timeit.timeit(second, number=1000000)
+    print(second)

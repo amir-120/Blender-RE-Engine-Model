@@ -100,8 +100,10 @@ def LoadREModel(meshPath: str, mdfPath: str or None = None, useHQTex: bool = Tru
                 mdfNode = Shader.AddMDFNode(mat, mdfMat)
 
                 reShaderType = Shader.GuessREShaderType(mat.name, mdfNode)
-                if reShaderType == "Skin & WM": reShaderType = 'Skin Shader'
-                outShader.ChangeType(reShaderType)
+                if reShaderType == "Skin WM":
+                    outShader.ChangeType('Default Shader')
+                else:
+                    outShader.ChangeType(reShaderType)
 
                 for tex in mdfMat.textureInfo:
                     lqTexPath = tex.filePath
@@ -148,7 +150,13 @@ def LoadREModel(meshPath: str, mdfPath: str or None = None, useHQTex: bool = Tru
                 if flags & MaterialFlags.ShadowCastDisable:
                     mat.shadow_method = 'NONE'
 
-                mat.use_sss_translucency = reShaderType == 'Skin Shader'
+                useSSS = False
+
+                for matProp in mdfMat.properties:
+                    if matProp.name == 'SSS_Channel':
+                        useSSS =matProp.parameters[0] == 1.0
+
+                mat.use_sss_translucency = useSSS
                 mat.use_screen_refraction = reShaderType == 'EyeOuter Shader'
 
             matOut = mat.node_tree.nodes.new(type='ShaderNodeOutputMaterial')

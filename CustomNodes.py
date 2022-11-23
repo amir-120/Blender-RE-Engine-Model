@@ -7,11 +7,11 @@ import bpy
 import os
 
 RENodeTreeEnum = Literal['Alba Shader', 'Albedo Wrinkles', 'Default Shader', 'Eye Shader', 'EyeOuter Shader',
-                         'Hair Shader', 'Head MSK 4', 'Normal Wrinkles', 'Skin Shader', 'Transparent Shader',
+                         'Hair Shader', 'Head MSK 4', 'Normal Wrinkles', 'Transparent Shader',
                          'Wrinkle Map']
 
 REShaderNodeTreeEnum = Literal['Alba Shader', 'Default Shader', 'Eye Shader', 'EyeOuter Shader', 'Hair Shader',
-                               'Skin Shader', 'Transparent Shader']
+                               'Transparent Shader']
 
 RENodeNodeTreeEnum = Literal['Albedo Wrinkles', 'Head MSK 4', 'Normal Wrinkles', 'Wrinkle Map']
 
@@ -28,7 +28,7 @@ def AppendRENodeTree(reShaderName: RENodeTreeEnum) -> bpy.types.ShaderNodeTree:
 
 def AppendAllRENodeTrees():
     AppendRENodeTree('Default Shader')
-    AppendRENodeTree('Skin Shader')
+    #AppendRENodeTree('Skin Shader')
     AppendRENodeTree('Wrinkle Map')
     AppendRENodeTree('Transparent Shader')
     AppendRENodeTree('Hair Shader')
@@ -400,33 +400,33 @@ class REEShaderHairShader(ShaderNodeCustomGroup, NodeHelper):
     def Unregister(cls):
         bpy.utils.unregister_class(cls)
 
-class REEShaderSkinShader(ShaderNodeCustomGroup, NodeHelper):
-    bl_name = 'REEShaderSkinShader'
-    bl_label = "RE Engine Skin Shader"
-    bl_description = "Skin Shader"
-    bl_type = 'REE_SHADER_SKIN'
-
-    def init(self, context):
-        self.node_tree = GetRENodeCopy('Skin Shader')
-        self.width = 240.0
-
-    def draw_label(self):
-        return self.bl_label
-
-    def copy(self, node):
-        self.node_tree = DeepCopyNodeTree(node.node_tree)
-
-    def free(self):
-        CleanNodeTree(self.node_tree)
-        self.node_tree = None
-
-    @classmethod
-    def Register(cls):
-        bpy.utils.register_class(cls)
-
-    @classmethod
-    def Unregister(cls):
-        bpy.utils.unregister_class(cls)
+#class REEShaderSkinShader(ShaderNodeCustomGroup, NodeHelper):
+#    bl_name = 'REEShaderSkinShader'
+#    bl_label = "RE Engine Skin Shader"
+#    bl_description = "Skin Shader"
+#    bl_type = 'REE_SHADER_SKIN'
+#
+#    def init(self, context):
+#        self.node_tree = GetRENodeCopy('Skin Shader')
+#        self.width = 240.0
+#
+#    def draw_label(self):
+#        return self.bl_label
+#
+#    def copy(self, node):
+#        self.node_tree = DeepCopyNodeTree(node.node_tree)
+#
+#    def free(self):
+#        CleanNodeTree(self.node_tree)
+#        self.node_tree = None
+#
+#    @classmethod
+#    def Register(cls):
+#        bpy.utils.register_class(cls)
+#
+#    @classmethod
+#    def Unregister(cls):
+#        bpy.utils.unregister_class(cls)
 
 class REEShaderTransparentShader(ShaderNodeCustomGroup, NodeHelper):
     bl_name = 'REEShaderTransparentShader'
@@ -464,7 +464,7 @@ class REEShaderDynamic(ShaderNodeCustomGroup, NodeHelper):
 
     reShaderDict = {
         'DefS': "Default Shader",
-        'Skin': "Skin Shader",
+        #'Skin': "Skin Shader",
         'Tran': "Transparent Shader",
         'Hair': "Hair Shader",
         'EyeO': "EyeOuter Shader",
@@ -481,7 +481,7 @@ class REEShaderDynamic(ShaderNodeCustomGroup, NodeHelper):
         description="Type of REE shader to use",
         items= [
             ('DefS', "Default Shader", "Generic REE shader"),
-            ('Skin', "Skin Shader", "Can use a wrinkle map as input"),
+            #('Skin', "Skin Shader", "Can use a wrinkle map as input"),
             ('Tran', "Transparent Shader", "Has transparency"),
             ('Hair', "Hair Shader", "Hair"),
             ('EyeO', "Eye Outer Shader", "Used for the outer mesh of the eye"),
@@ -509,7 +509,7 @@ class REEShaderDynamic(ShaderNodeCustomGroup, NodeHelper):
 
         row1 = layout.row(align=True)
         row1.prop(self, "reShaderType")
-        if self.reShaderType == 'Skin':
+        if self.reShaderType == 'DefS':
             row2 = layout.row(align=True)
             row2.operator(NODE_OT_AddWrinkleMap.bl_idname if isActive else NODE_OT_AddWrinkleMap_Disable.bl_idname)
         row3 = layout.row(align=True)
@@ -521,7 +521,7 @@ class REEShaderDynamic(ShaderNodeCustomGroup, NodeHelper):
 
         row1 = layout.row(align=True)
         row1.prop(self, "reShaderType")
-        if self.reShaderType == 'Skin':
+        if self.reShaderType == 'DefS':
             row2 = layout.row(align=True)
             row2.operator(NODE_OT_AddWrinkleMap.bl_idname if isActive else NODE_OT_AddWrinkleMap_Disable.bl_idname)
         row3 = layout.row(align=True)
@@ -842,7 +842,7 @@ class REENodeCategory(NodeCategory):
 
 customShaderClasses = [
     REEShaderAlba, REEShaderDefaultShader, REEShaderEyeShader, REEShaderEyeOuterShader, REEShaderHairShader,
-    REEShaderSkinShader, REEShaderTransparentShader, REEShaderDynamic
+    REEShaderTransparentShader, REEShaderDynamic
 ]
 
 customNodeClasses = [ REENodeAlbedoWrinkles, REENodeHeadMSK4, REENodeNormalWrinkles, REENodeWrinkleMap, REENodeDynamic]

@@ -13,7 +13,7 @@ def GuessREShaderType(matName: str,
             "WrinkleDiffuseMap3" in mdfOutputNames and "WrinkleNormalMap1" in mdfOutputNames and
             "WrinkleNormalMap2" in mdfOutputNames and "WrinkleNormalMap3" in mdfOutputNames) or \
                 ("SSS_Channel" in mdfOutputNames and "Weight1" in mdfOutputNames):
-            return 'Skin & WM'
+            return 'Skin WM'
 
         if "OccDark" in mdfOutputNames and "BaseShiftMap" in mdfOutputNames:
             return 'Hair Shader'
@@ -24,10 +24,6 @@ def GuessREShaderType(matName: str,
         if "ReflectImage_Intensity" in mdfOutputNames and "ReflectImage_Distortion" in mdfOutputNames or \
                 "ReflectImage_UseFishEye" in mdfOutputNames:
             return 'EyeOuter Shader'
-
-        if "SSS_Channel" in mdfOutputNames and "OcclusionIntensity" in mdfOutputNames and \
-                "UseAlphaMap" in mdfOutputNames and "DissolveControl" in mdfOutputNames:
-            'Skin Shader'
 
         if "UseAlphaMap" in mdfOutputNames:
             return 'Transparent Shader'

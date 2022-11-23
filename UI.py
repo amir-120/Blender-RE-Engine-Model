@@ -167,9 +167,9 @@ class OBJECT_OT_REMeshImport(Operator):
 
 class VIEWPORT_OT_FillPaths(bpy.types.Operator, ImportHelper):
     bl_idname = "reengine.fill_paths"
-    bl_label = "Browse"
+    bl_label = "Select"
     bl_options = {'UNDO', 'PRESET'}
-    bl_description = "Brows the mesh and mdf files"
+    bl_description = "Browse the mesh and mdf files"
 
     directory: StringProperty()
 
@@ -231,7 +231,7 @@ class VIEWPORT_OT_FillPaths(bpy.types.Operator, ImportHelper):
 
 class VIEWPORT_OT_FillMDFPath(bpy.types.Operator, ImportHelper):
     bl_idname = "reengine.fill_mdf_path"
-    bl_label = "Browse"
+    bl_label = "Choose"
     bl_options = {'UNDO', 'PRESET'}
     bl_description = "Browse the MDF file"
 
