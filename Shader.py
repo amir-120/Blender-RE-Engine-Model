@@ -63,10 +63,10 @@ def AddMDFNode(mat: bpy.types.Material, mdfMat: Material) -> bpy.types.Node:
     for tex in mdfMat.textureInfo:
         colName = tex.type
         alpName = f"{tex.type} - Alpha"
-        group.inputs.new(type='NodeSocketImage', name=colName)
-        group.inputs.new(type='NodeSocketImage', name=alpName)
-        group.outputs.new(type='NodeSocketImage', name=colName)
-        group.outputs.new(type='NodeSocketImage', name=alpName)
+        group.node_tree.inputs.new(type='NodeSocketImage', name=colName)
+        group.node_tree.inputs.new(type='NodeSocketImage', name=alpName)
+        group.node_tree.outputs.new(type='NodeSocketImage', name=colName)
+        group.node_tree.outputs.new(type='NodeSocketImage', name=alpName)
         links.new(inputs.outputs[colName], outputs.inputs[colName])
         links.new(inputs.outputs[alpName], outputs.inputs[alpName])
 
@@ -74,7 +74,7 @@ def AddMDFNode(mat: bpy.types.Material, mdfMat: Material) -> bpy.types.Node:
         #    nmNode = mat.node_tree.nodes.new('ShaderNodeNormalMap')
         #    nmNode.name = f"{colName} - NormalMap"
         #    nmNode.label = colName
-        #    mat.node_tree.links.new(group.outputs[colName], nmNode.inputs['Color'])
+        #    mat.node_tree.links.new(group.node_tree.outputs[colName], nmNode.inputs['Color'])
 
     for prop in mdfMat.properties:
         if (prop.parameterCount == 4) and ("color" in prop.name.lower()) and not ("rate" in prop.name.lower()) or \
@@ -83,8 +83,8 @@ def AddMDFNode(mat: bpy.types.Material, mdfMat: Material) -> bpy.types.Node:
                 prop.utf16NameMurmur3 == 0x033CB166 or prop.utf16NameMurmur3 == 0x7D0FA086 or \
                 prop.utf16NameMurmur3 == 0x83EBFAB5 or prop.utf16NameMurmur3 == 0x77181233:
             name = prop.name
-            group.inputs.new(type='NodeSocketColor', name=name)
-            group.outputs.new(type='NodeSocketColor', name=name)
+            group.node_tree.inputs.new(type='NodeSocketColor', name=name)
+            group.node_tree.outputs.new(type='NodeSocketColor', name=name)
             group.inputs[name].default_value = (prop.parameters[0], prop.parameters[1],
                                                 prop.parameters[2], prop.parameters[3])
             links.new(inputs.outputs[name], outputs.inputs[name])
@@ -92,8 +92,8 @@ def AddMDFNode(mat: bpy.types.Material, mdfMat: Material) -> bpy.types.Node:
         else:
             for idx, param in enumerate(prop.parameters):
                 name = f"{prop.name} - {idx}" if prop.parameterCount > 1 else prop.name
-                group.inputs.new(type='NodeSocketFloat', name=name)
-                group.outputs.new(type='NodeSocketFloat', name=name)
+                group.node_tree.inputs.new(type='NodeSocketFloat', name=name)
+                group.node_tree.outputs.new(type='NodeSocketFloat', name=name)
                 group.inputs[name].default_value = param
                 links.new(inputs.outputs[name], outputs.inputs[name])
 
