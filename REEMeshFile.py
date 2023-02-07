@@ -370,8 +370,11 @@ class REEMesh:
             self.shadowModel = ModelInfo(self.fileBuffer, self.header.shadowLODDescriptionsOffset,
                                          self.vertexBufferHeader, self.mainModel.faceBufferTotalSize, True)
 
-        # Read armature info
-        self.armature = ArmatureHeader(self.fileBuffer, self.header.armatureHeaderOffset)
+        # Read armature info if exists
+        self.hasArmature: bool = False
+        if self.header.armatureHeaderOffset != 0:
+         self.hasArmature = True
+         self.armature = ArmatureHeader(self.fileBuffer, self.header.armatureHeaderOffset)
 
         # Name table
         self.nameTable = NameTable(self.fileBuffer, self.header.nameTableOffset, self.header.nameTableNodeCount)
@@ -383,13 +386,15 @@ class REEMesh:
                                                             matNIdxBuffLen)
 
         # Bone name index buffer
-        self.boneNameIndexBuffer: np.ndarray[int] = ReadInt16(self.fileBuffer, self.header.boneNameIndexBufferOffset,
+        if self.hasArmature:
+            self.boneNameIndexBuffer: np.ndarray[int] = ReadInt16(self.fileBuffer, self.header.boneNameIndexBufferOffset,
                                                         self.armature.boneCount)
 
         # Skin map bounding boxes
-        self.boundingBoxHeader = BoundingBoxHeader(self.fileBuffer, self.header.boundingBoxHeaderOffset)
+        if self.header.boundingBoxHeaderOffset != 0:
+            self.boundingBoxHeader = BoundingBoxHeader(self.fileBuffer, self.header.boundingBoxHeaderOffset)
 
-        self.boundingBoxes: list[BoundingBox] = [BoundingBox] * self.boundingBoxHeader.boundingBoxCount
-        for i in range(self.boundingBoxHeader.boundingBoxCount):
-            self.boundingBoxes[i] = BoundingBox(self.fileBuffer, self.boundingBoxHeader.boundingBoxBufferOffset + i *
-                                                  BoundingBox.size)
+            self.boundingBoxes: list[BoundingBox] = [BoundingBox] * self.boundingBoxHeader.boundingBoxCount
+            for i in range(self.boundingBoxHeader.boundingBoxCount):
+                self.boundingBoxes[i] = BoundingBox(self.fileBuffer, self.boundingBoxHeader.boundingBoxBufferOffset + i *
+                                                    BoundingBox.size)

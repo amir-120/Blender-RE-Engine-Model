@@ -44,8 +44,8 @@ GuessREShaderType.nameTypeMap = {
     "m_eyeshadow"   : 'Alba Shader',
     "m_eyeouter"    : 'EyeOuter Shader',
     "m_eyewet"      : 'EyeOuter Shader',
-    "m_head"        : 'Skin Shader',
-    "m_hand"        : 'Skin Shader',
+    #"m_head"        : 'Skin Shader',
+    #"m_hand"        : 'Skin Shader',
 }
 
 

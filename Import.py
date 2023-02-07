@@ -55,6 +55,8 @@ def LoadREModel(meshPath: str, mdfPath: str or None = None, useHQTex: bool = Tru
     # Open the model file and read it
     reModel = ReadREModel(meshPath)
 
+    loadArmature = loadArmature and reModel.hasArmature
+
     # Make collection
     modelCollection = bpy.data.collections.new(os.path.splitext(os.path.splitext(os.path.basename(meshPath))[0])[0])
     bpy.context.scene.collection.children.link(modelCollection)
