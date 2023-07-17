@@ -63,10 +63,10 @@ def AddMDFNode(mat: bpy.types.Material, mdfMat: Material) -> bpy.types.Node:
     for tex in mdfMat.textureInfo:
         colName = tex.type
         alpName = f"{tex.type} - Alpha"
-        group.node_tree.inputs.new(type='NodeSocketImage', name=colName)
-        group.node_tree.inputs.new(type='NodeSocketImage', name=alpName)
-        group.node_tree.outputs.new(type='NodeSocketImage', name=colName)
-        group.node_tree.outputs.new(type='NodeSocketImage', name=alpName)
+        group.node_tree.inputs.new(type='NodeSocketColor', name=colName)
+        group.node_tree.inputs.new(type='NodeSocketFloat', name=alpName)
+        group.node_tree.outputs.new(type='NodeSocketColor', name=colName)
+        group.node_tree.outputs.new(type='NodeSocketFloat', name=alpName)
         links.new(inputs.outputs[colName], outputs.inputs[colName])
         links.new(inputs.outputs[alpName], outputs.inputs[alpName])
 

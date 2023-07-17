@@ -10,10 +10,10 @@ bl_info = {
     "description": "Can be used to import and set up models from RE Engine, "
                    "special thanks to galen for making the shaders",
     "author": "Darkness, galen",
-    "version": (1, 0, 3),
-    "blender": (3, 3, 1),
+    "version": (1, 0, 5),
+    "blender": (3, 6, 0),
     "location": "3D Viewport and Node Editor",
-    "warning": "This addon is still in development.",
+    "warning": "This addon is still in development, please report any bugs you may encounter.",
     "wiki_url": "",
     "category": "Import - Node" }
 

@@ -191,12 +191,17 @@ def LoadREModel(meshPath: str, mdfPath: str or None = None, useHQTex: bool = Tru
         bones = reModel.armature.globalBoneTransforms  # From the file
         bone_index_buffer = reModel.boneNameIndexBuffer
 
+        # First we add all the bones to blender scene because we might need to index bones that need to be there later
         for i in range(reModel.armature.boneCount):
             bone_from_file = bones[i]
-            bone_parent_index = reModel.armature.boneHierarchy[i].parent
             bone = armature.edit_bones.new(nameBuffer[bone_index_buffer[i]])
             bone.matrix = bone_from_file.transformMatrix
             bone.use_relative_parent = True
+
+        # Then we set the parents for the bones
+        for i in range(reModel.armature.boneCount):
+            bone_parent_index = reModel.armature.boneHierarchy[i].parent
+            bone = armature.edit_bones[i]
 
             if bone_parent_index != -1:
                 bone.parent = armature.edit_bones[bone_parent_index]
@@ -223,7 +228,7 @@ def LoadREModel(meshPath: str, mdfPath: str or None = None, useHQTex: bool = Tru
         # Getting around blender being ass and not letting 0 length bones
         for bone in armature.edit_bones:
             if bone.length <= 0.00005:
-                bone.tail += mathutils.Vector([0.000001, 0.0, 0.0])
+                bone.tail += mathutils.Vector([0.005, 0.0, 0.0])
 
     for geoIdx in range(1 if mainGeoOnly else 2):
         # idx == 0: main geometry
@@ -299,8 +304,12 @@ def LoadREModel(meshPath: str, mdfPath: str or None = None, useHQTex: bool = Tru
                             normal.normalize()
                             normal_data.append(normal)
 
-                    mesh.use_auto_smooth = True
+                    # Enable smooth for polygons
+                    mesh.polygons.foreach_set("use_smooth", np.full(len(mesh.polygons), True, dtype=bool))
+
+                    # Setting the normals
                     mesh.normals_split_custom_set(normal_data)
+                    mesh.use_auto_smooth = True
                     if submesh.uv0s.any():
                         mesh.calc_tangents(uvmap="UV_0")
                     mesh.update()
