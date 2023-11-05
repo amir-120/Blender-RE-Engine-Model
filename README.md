@@ -50,7 +50,7 @@ The add-on by default uses the "RE Engine Dynamic Shader" shader node because it
 # Important
 This add-on does not support automation for setting up specific types of materials including the emissive materials such as the devil trigger materials, orb materials such as the gem on the DSD's hilt
 
-This only effects the automatic material setup as there are no shaders for the items mentioned above but you can set them up manually using your own shaders or Blender's default shaders like the "Principled BSDF"
+This only affects the automatic material setup as there are no shaders for the items mentioned above but you can set them up manually using your own shaders or Blender's default shaders like the "Principled BSDF"
 
 
 Also if you are new to Evee rendering you would want to enable these for better results here:
